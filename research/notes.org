@@ -1,0 +1,402 @@
+#+STARTUP: content
+#+LATEX_HEADER: \usepackage{amsmath} \usepackage{bm} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_c^v}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
+
+* Introduction
+At present there are several global ocean general circulation models
+formulated on unstructured meshes. They include MPAS-Ocean
+(\cite{Ringler2013}), ICON-o (\cite{Korn2013}) and FESOM
+(\cite{Wang2014}, \cite{Danilov2017}). They use different types of
+spatial discretization in horizontal plane.  The discretizations of
+ICON-o and MPAS-Ocean are based on discrete normal velocities at the
+edges of primary triangular (ICON-o) or dual hexagonal mesh
+(MPAS-Ocean), placing scalars at cells of primary or dual mesh
+respectively. FESOM works with full velocity vectors placed on cells
+of triangular mesh, and scalars on median dual control volumes related
+to mesh vertices. In analogy with the 'Arakawa' quadrilateral grids
+(\cite{ArakawaLamb1977}) the discretizations discussed here will be
+referred to as the hexagonal C grid (MPAS-Ocean), triangular C grid
+(ICON-o, even though this model uses a mimetic discretization
+different from the usual C grid) and triangular B-grid (FESOM). The
+list of unstructured-mesh ocean models and discretizations could have
+been extended to include many coastal models, but we do not consider
+them here.
+
+The question about advantages and disadvantages of regular
+quadrilateral B and C grids has been discussed repeatedly and is
+already a subject of textbooks (e.g. \cite{BeckmannHeidvogel}). As is
+well known, the B grids win in the representation of the Coriolis
+force, where the C grids introduce averaging, but lose in the
+representation of pressure gradients, where they introduce additional
+averaging compared to C grids. The recent analysis by
+\cite{Barhan2018} adds to the understanding of the properties of the B
+and C grids by studying how they reproduce known instabilities in the
+Eady problem configuration. The resolution of global ocean circulation
+models increases and numerous setups are used to simulate eddy-rich
+regimes, and the analysis helps to assess efficient resolution of
+these two grids (discretizations). \cite{Barhan2018} show that the C
+grid discretization gives substantially more accurate growth rates of
+symmetric instability, but generates a spurious baroclinic (for
+wavevectors aligned with unperturbed flow) instability in the range of
+wavenumbers extending up to the cutoff wavenumber. Suppression of the
+latter requires a special combination of the fourth order scalar
+advection and biharmonic horizontal viscosity. Thus, while both the
+grids are well suited to model the standard baroclinic instability,
+the C grid can be a better option at very high resolutions when the
+symmetric instability can become a part of dynamics.
+
+The question arises as to whether these distinctions in reproducing
+instabilities are preserved for triangular (hexagonal) C and B
+grids. On one hand, the C grids still offer better locality of
+pressure gradient computations than B grids. There are, however, many
+differences compared to the case of quadrilateral grids. For example,
+there is no pressure gradient averaging on triangular B grids, special
+reconstructions are required for the Coriolis term on the hexagonal C
+grid (\cite{Thuburn2009},\cite{Ringler2010}) and special approach is
+needed to express the horizontal divergence which is equivalent to
+averaging of primary normal velocities (\cite{Korn2017}) on the
+triangular C grid. There is an additional important difference,
+however. All staggered unstructured grid discretizations maintain
+spurious modes which emerge due to a disbalance between vector and
+scalar degrees of freedom (DoF). There are either too many scalar DoF
+(on the triangular C grid) or too many velocity DoF (on the hexagonal
+C grid and triangular B grid). Can these spurious modes modify how the
+instabilities are simulated or lead to spurious instabilities on their
+own is a question which remains to be answered.
+
+The presented work is inspired by the analysis carried out by
+\cite{Barham2018} and aims to extend this analysis to triangular mesh
+discretization of ICON-o and FESOM. We study how well triangular-mesh
+discretization can represent linear symmetric and baroclinic
+instabilities in the Eady problem configuration. Same as in
+\cite{Barham2018}, we use hydrostatic and the Boussinesq
+approximation, and consider the buoyancy as a single scalar field. We
+also consider the effect of several momentum advection schemes,
+including the vector-invariant scheme for the B grid, which is shown
+to trigger the Hollingsworth instability. ....
+
+Due to the presence of spurious modes the analysis is more cumbersome,
+and we present necessary preliminary information and detailed
+expressions for elementary discrete operators in section ....
+
+* Methods
+** triangular B grid
+*** geometry
+- cells: two lattices
+- vertices: one lattice
+- edges: three lattices
+vectors and constants
+- direction of the edges  $\Vec{l}_i$ for $i=1,2,3$
+- normal vector to the control volume $\Vec{n}_{v,e}$ around vertex
+  $v$ at edge $e$
+- normal vector to the cell $\Vec{n}_{c,e}$ around the center $c$ at
+  the edge $e$
+*** operators
+**** divergence
+\begin{equation*}
+\big(\nabla\cdot\boldsymbol{\Vec{F}}\big)_v
+= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} \ell_{\hat{e}} \Vec{n}_{v,e} \cdot \Vec{F}_c
+\end{equation*}
+**** gradient
+\begin{equation*}
+\big( \nabla \boldsymbol{p}\big)_c
+=\frac{1}{A_c} \sum_{e\in E(c)} \Vec{n}_{c,e}\ell_e \frac{1}{2}\sum_{v\in V(e)} p_v
+\end{equation*}
+\begin{subequations}
+\begin{align*}
+\big( \nabla \boldsymbol{F} \big)_c
+&= \sum_{e\in E(c)} \Vec{n}_{c,e}\ell_e \frac{1}{\ell_e}\sum_{\Tilde{c}\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_{\Tilde{c}, e} F_{\Tilde{c}}
+\end{align*}
+\end{subequations}
+**** curl
+#+NAME: curl
+\begin{equation*}
+\Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}}\big) \Big)_v = \sum_{e\in E(v)} \sum_{c\in C(e)} \frac{\ell_e}{2} \Vec{n}_{v,e}^\perp \cdot \Vec{u}_c
+\end{equation*}
+**** horizontal momentum advection
+***** flux form
+****** divergence on scalar control volumes
+#+NAME: hma-flux-form
+\begin{equation*}
+\Big(\nabla \cdot \big( \boldsymbol{\Vec{u}} \boldsymbol{u_i} \big) \Big)_{c}
+= \mathrm{Av}\Big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i}\big)_v \Big)_c
+\end{equation*}
+****** divergence on cells with vector reconstructions onto edges
+#+NAME: hma-flux-form-divergence-cells
+\begin{subequations}
+\begin{align*}
+F &= \ell_e \sum_{\hat{c}\in C(e)} \Vec{n}_{\Tilde{c},e}\cdot\Vec{u}_{\hat{c}} / 2\\
+Ru_i &= u_{i,\Tilde{c}} + \ell_e/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabla \boldsymbol{u_i}\big)_{\Tilde{c}}\\
+\Big(\nabla \cdot \big( \boldsymbol{\Vec{u}} \boldsymbol{u_i} \big) \Big)_{c}
+&= \frac{1}{A_c}\sum_{e\in C(e)} \sum_{\Tilde{c}\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_{\Tilde{c},e}\frac{F +  \abs{F}}{2}~Ru_i
+\end{align*}
+\end{subequations}
+***** advective form
+****** streamline directional derivative using the vector gradient
+#+NAME: hma-advective-form-vector-gradient
+\begin{equation*}
+\Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
+= \Big(\boldsymbol{\Vec{u}}\cdot \big(\nabla \boldsymbol{u_i}\big)_c\Big)_c
+\end{equation*}
+***** vector-invariant form
+#+NAME: hma-vector-invariant-form
+\begin{equation*}
+\Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
+= \bigg( \mathrm{Av}\Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}} \big)_v \Big) \boldsymbol{\Vec{u}^\perp_i} \bigg)_c + \frac{1}{2}\Vec{e}_i\cdot\nabla\bigg( \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v \cdot \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v  \bigg)_c
+\end{equation*}
+**** horizontal scalar advection
+***** flux form
+#+NAME: hsa-flux-form
+\begin{subequations}
+\begin{align*}
+F &= \ell_e \sum_{c\in C(e)} \Vec{n}_{v,e} \cdot \Vec{u}_c / 2\\
+db^{\text{cen}} &= \frac{1}{\ell_e}\sum_{\hat{v}\in V(e)} \Vec{n}_{\Hat{v},e} \cdot \Vec{n}_{\Tilde{v},e} b_{\Hat{v}} \\
+db &= \frac{2}{3} db^{\text{cen}} + \frac{1}{3} \Vec{n}_{\Tilde{v},e} \cdot (\nabla b )_{c^{\text{up}}\big(\Tilde{v}, \Vec{n}_{\Tilde{v},e}\big)} \\
+Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
+\Big(\nabla \cdot \big(\boldsymbol{\Vec{u}}\boldsymbol{b}\big) \Big)_{v}
+&= \frac{1}{A_v}\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \frac{F + (1-\gamma)\abs{F}}{2} Rb
+\end{align*}
+\end{subequations}
+** triangular C grid
+*** operators
+**** divergence
+\begin{equation*}
+\Big( \nabla \cdot \boldsymbol{u} \Big)_c
+= \frac{1}{A_c}\sum_{e\in E(c)} \ell_e \Vec{n}_{e,c}\cdot\Vec{n}_e u_e
+\end{equation*}
+**** curl
+\begin{equation*}
+\Big( \mathrm{Curl} \big(\boldsymbol{u}\big) \Big)_v
+= \frac{1}{A_v} \sum_{e\in E(v)} \ell_e \Vec{n}_{v,e} \cdot \Vec{t}_e u_e
+\end{equation*}
+**** gradient in edge direction
+\begin{equation*}
+\Big( \nabla \boldsymbol{p} \Big)_e
+= \frac{1}{\ell_{\hat{e}}} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_e p_c
+\end{equation*}
+**** gradient in tangential direction
+\begin{equation*}
+\Big( \nabla^\perp \boldsymbol{\omega} \Big)_e = \frac{1}{\ell_e} \sum_{v\in V(e)} \Vec{n}_{v,e} \cdot \Vec{t}_e \omega_v
+\end{equation*}
+**** Perot reconstructions
+\begin{equation*}
+\Big( \mathrm{P} \boldsymbol{u} \Big)_c
+= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e \ell_{\hat{e}}}{2} \Vec{n}_e u_e
+\end{equation*}
+\begin{equation*}
+\Big( \mathrm{P}^\top \boldsymbol{\Vec{F}} \Big)_e
+= \frac{1}{2} \sum_{c\in C(e)} \Vec{n}_e \cdot \Vec{F}_c
+\end{equation*}
+\begin{equation*}
+\Big( \Tilde{\mathrm{P}} \boldsymbol{u} \Big)_v
+= \frac{1}{A_c} \sum_{e\in E(v)} \frac{\ell_e \ell_{\hat{e}}}{2} \Vec{n}_e u_e
+\end{equation*}
+\begin{equation*}
+\Big( \Tilde{\mathrm{P}}^\dagger \boldsymbol{\Vec{G}}\Big)_e
+= \frac{1}{2} \sum_{v\in V(e)} \Vec{t}_e \cdot \Vec{G}_e
+\end{equation*}
+**** horizontal momentum advection
+\begin{subequations}
+\begin{align*}
+\boldsymbol{\mathrm{KE}} &= \mathrm{P}\boldsymbol{u} \cdot \mathrm{P}\boldsymbol{u}\\
+\boldsymbol{\omega} &= \mathrm{Curl}(\boldsymbol{u})\\
+\Big(\big(\boldsymbol{u}\cdot \nabla\big)\boldsymbol{u} \Big)
+&= \Tilde{\mathcal{M}}\big[\boldsymbol{u}, \boldsymbol{\omega}\big] + \mathcal{M} \nabla \boldsymbol{\mathrm{KE}}
+\end{align*}
+\end{subequations}
+**** horizontal scalar advection
+\begin{equation*}
+\nabla \cdot \big(\boldsymbol{u}\boldsymbol{b}\big)
+= \nabla\cdot \mathcal{M}\big[\boldsymbol{u}, \boldsymbol{b}\big]
+\end{equation*}
+** hexagonal C grid
+*** operators
+**** divergence
+\begin{equation*}
+\Big(\nabla \cdot \boldsymbol{u}\Big)_c
+= \frac{1}{A_c}\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{n}_e u_e
+\end{equation*}
+\begin{equation*}
+\Big(\nabla \cdot \boldsymbol{u}\Big)_v
+= \frac{1}{A_v} \sum_{c\in C(v)} R_{c,v} A_c \big(\nabla\cdot \boldsymbol{u}\big)_c
+\end{equation*}
+**** gradient
+\begin{equation*}
+\big( \nabla \boldsymbol{p} \big)_e = \frac{1}{\ell_{\Hat{e}}} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot \Vec{n}_e p_c
+\end{equation*}
+**** curl
+\begin{equation*}
+\Big( \mathrm{Curl} \big(\boldsymbol{u}\big) \Big)_v
+= \frac{1}{A_v} \sum_{e\in E(v)} \ell_e \Vec{n}_{v,e} \cdot \Vec{t}_e u_e
+\end{equation*}
+**** vorticity flux
+\begin{subequations}
+\begin{align*}
+\Tilde{q} &= \frac{1}{2} \sum_{v\in V(\Tilde{e})} \omega_v\\
+\Tilde{q}_e &= \frac{1}{2} \sum_{v\in V(e)} \omega_v\\
+\mathcal{M}\big[\boldsymbol{u}, \boldsymbol{\omega}\big]_e
+&= \frac{1}{\ell_{\hat{e}}} \sum_{\Tilde{e}\in ECP(e)} w_{e,\Tilde{e}} \ell_{\hat{e}} u_e \frac{\Tilde{q}_e + \Tilde{q}}{2}
+\end{align*}
+\end{subequations}
+**** horizontal momentum advection
+\begin{subequations}
+\begin{align*}
+\mathrm{KE} &= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e\ell_{\hat{e}}}{2} u_e^2\\
+\omega &= \mathrm{Curl}(\boldsymbol{u})_v\\
+\Big(\big(\boldsymbol{u}\cdot \nabla\big)\boldsymbol{u} \Big)_e
+&= \mathcal{M}\big[\boldsymbol{u}, \boldsymbol{\omega}\big]_e + \Big(\nabla \mathrm{KE}\Big)_e
+\end{align*}
+\end{subequations}
+**** horizontal scalar advection
+\begin{subequations}
+\begin{align*}
+\Big(\nabla\cdot \big( \boldsymbol{u} \boldsymbol{b}\big)\Big)_c
+&= \Big(\nabla\cdot \big( \boldsymbol{u} \big(\mathrm{Av}\boldsymbol{b}\big)\big)\Big)_c
+\end{align*}
+\end{subequations}
+** TODO triangular A grid
+*** operators
+**** divergence
+**** gradient
+**** curl
+** old comments
+
+
+#+NAME: eq:system
+\begin{subequations}
+\begin{align}
+\frac{\mathrm{d}\bsu}{\mathrm{d}t} + \Bar{U} \uhma(\theta_U)\Vec{\bsu} - \cos(\theta_U) \frac{M^2}{f_0}\avcv\bsw - f_0 \bsv &= -\Vec{e_1} \cdot \gradcv (\bsp + \bseta)\\
+\frac{\mathrm{d}\bsv}{\mathrm{d}t} + \Bar{U} \vhma(\theta_U)\Vec{\bsu} + \sin(\theta_U) \frac{M^2}{f_0}\avcv\bsw + f_0 \bsu &= -\Vec{e_2} \cdot \gradcv (\bsp + \bseta)\\
+\frac{\mathrm{d}\bsb}{\mathrm{d}t} + \Bar{U} \mathrm{S_v^v}(\theta_U)\bsb + M^2 \mathrm{S_c^v}(\theta_U)\Vec{\bsu}  + N^2 \bsw & = \boldsymbol{0}
+\end{align}
+\end{subequations}
+
+Let $\mathrm{R_{i,d,v}^v}$ be a reconstruction operator onto the edge
+in direction $\Vec{m}_i^d$ with respect to the center of the scalar
+control volume. Similarly, $\mathrm{R_{i,u,v}^v}$ be a reconstruction
+operator onto the edge in direction $\Vec{m}_i^u$ with respect to the
+center of the control volume. 
+
+#+NAME: eq:hsa
+\begin{equation*}
+\sum_{(i,j,k)} \Bigg(\frac{1}{3} \Big(\mathrm{R_{i,d,v}^v} - \mathrm{1_{0,0,v}^v}\Big) \boldsymbol{b} \odot \Vec{m}_i^d  \mathrm{1^v_{k,u,c}}\boldsymbol{\Vec{u}} + \frac{1}{3} \Big(\mathrm{R_{j,u,v}^v} - \mathrm{1_{0,0,v}^v}\Big) \boldsymbol{b} \odot \Vec{m}_j^u  \mathrm{1^v_{k,u,c}}\boldsymbol{\Vec{u}}\Bigg)
+\end{equation*}
+
+\begin{equation*}
+\mathrm{S_v^v} = \sum_{i=1}^3 \Bigg( \frac{2}{3} \Vec{m}_i^u \cdot \Vec{d}\Big(\mathrm{R_{i,u,v}^v} - \mathrm{1_{0,0,v}^v}\Big) + \frac{2}{3} \Vec{m}_i^d \cdot \Vec{d}\Big(\mathrm{R_{i,d,v}^v} - \mathrm{1_{0,0,v}^v}\Big)  \Bigg)
+\end{equation*}
+
+\begin{equation*}
+\Vec{\mathrm{S}}_\mathrm{c,u}^\mathrm{v} = \sum_{(i,j,k)} \frac{1}{6} \Vec{d}^\perp \cdot \Big(\Vec{m}_i^u\Vec{m}_i^u + \Vec{m}_j^u\Vec{m}_j^u\Big) \mathrm{1^v_{k,u,c}}
+\end{equation*}
+
+Let $\mathrm{R_{i,d,c}^{c,u}}$ be a reconstruction operator onto the
+edge in direction $\Vec{n}_i^u$ with respect to the center of the
+triangle. Similarly, let $\mathrm{R_{i,u,c}^{c,d}}$ be a
+reconstruction operator onto the edge in direction $\Vec{n}_i^d$ with
+respect to the center of the triangle.
+
+
+\begin{align*}
+&\sum_{i=1}^3 \frac{4}{\sqrt{3}} \Vec{n}_i^d \mathrm{R_{i,d,c}^{c,u}}\boldsymbol{\Vec{u}} \odot \Big(\mathrm{\tilde{R}_{i,d,c}^{c,u}} \boldsymbol{u} - \mathrm{1_{0,0,c,u}^{c,u}}\boldsymbol{u^u}\Big)\\
+&\sum_{i=1}^3 \frac{4}{\sqrt{3}} \Vec{n}_i^u \mathrm{R_{i,u,c}^{c,d}}\boldsymbol{\Vec{u}} \odot \Big(\mathrm{\tilde{R}_{i,u,c}^{c,d}} \boldsymbol{u} - \mathrm{1_{0,0,c,d}^{c,d}}\boldsymbol{u^d}\Big)
+\end{align*}
+
+\begin{equation*}
+\Vec{\mathrm{Uhma}}_\mathrm{c,u}^\mathrm{c} =\sum_{i=1}^3 \frac{4}{\sqrt{3}} \Vec{n}_i^d\cdot \Vec{d}~\mathrm{\tilde{R}_{i,d,c}^{c,u}}\Vec{e}_1
+\end{equation*}
+
+\begin{equation*}
+\Vec{\mathrm{Vhma}}_\mathrm{c,u}^\mathrm{c} =\sum_{i=1}^3 \frac{4}{\sqrt{3}} \Vec{n}_i^d\cdot \Vec{d}~\mathrm{\tilde{R}_{i,d,c}^{c,u}}\Vec{e}_2
+\end{equation*}
+
+\begin{equation*}
+\Vec{\mathrm{Uhma}}_\mathrm{c}^\mathrm{c} = \Vec{d} \cdot \gradcc \Vec{e}_1
+\end{equation*}
+
+\begin{equation*}
+ = 
+\end{equation*}
+
+* Discussion
+Some comments on \cite{Barham2018}, we may place their discussion in
+Discussions:
+** Alignment of Basic Flow and Mesh
+They assume that the basic flow is aligned with the mesh. Their
+results will be somewhat different for other directions. To estimate
+the changes, one should, in principle, consider the case when the flow
+is along the mesh diagonal. For triangular meshes, one needs to
+compare the direction of basic flow along the triangle side and at
+$\pi/6$ to it or perpendicular to it (which is the same because of
+mesh symmetry). The directions along the baroclinic and symmetric axes
+are not numerically equivalent on triangular meshes, in contrast to
+quadrilateral meshes
+#+CAPTION: Symmetric Instability on tri-B with direct-advective discr. at 3.125 km resolution
+[[../plots/ali-tri-B-direct-advective-sym.svg]]
+
+*** TODO Create appropriate plots
+** Influence of Vertical Averaging
+Symmetric instability: If we look at (25)-(37) along the symmetric
+axis ($a_x=1$, $\delta_x=0$) and compare with (38)-(40), we conclude
+that the only difference is in the third term on the LHS of (35) and
+(38). This term contains additional averaging on B grid, and the
+effect is as if $M^2$ is reduced compared to C grid. This additional
+averaging comes from $w$ averaging. On B grid, we average four $w$
+values to the velocity point, and on C grid, only two. Apart from
+that, there is some extra averaging in the expression for the surface
+pressure ($\varphi$) (in denominator on B and numerator on C). It
+would be interest to see which of them are important for the symmetric
+instability. It would be strange if $\varphi$ is involved, because of
+its barotropic character.
+
+If the problem is due to (35) and (38), it will remain on triangular
+meshes. We average $w$ from two cells to get it at velocity points of
+C grid. And we average it from three vertices to triangle center on B
+grid. While there is more averaging on B compared to C, it is less
+than on a quadrilateral mesh. This reduced averaging can of course be
+masked by the fact that on C grid the vertical velocity is computed on
+triangles, which makes it more localized on C grid. It would be good
+to discuss this in the paper.
+
+The question on the accuracy of B vs C with respect to the symmetric
+instability, a point \cite{Barham2018} did not touch. While C grid is
+more accurate, most of accuracy gain (compared to B grid) is at grid
+scales. The fact that C grid produces instability at 25 km and 12.5 km
+does not mean a lot, because the instability range is too close to the
+cutoff wavenumber, and all this will be killed by dissipation. Even
+for the mesh of 3.125 km the scales on which one can rely start
+between $k_y=2\pi/(8h)$ and $k_y=2\pi/(4h)$, where the B grid is
+already not that bad. In summary, unless we use a very high-order
+advection so that the dissipation is really at grid scales, there is
+no essential difference.
+** Hollingsworith instability
+The Hollingsworth instability: The last term on the LHS of (41)
+signals about potential problem: Indeed, we do not recover pure
+advection of $\mathbf{v}'$. This term is small, but it will be
+comparable to everything else at grid scales. The appearance of the
+Hollingsworth instability (which is computational symmetric
+instability) should be related to this term.  It could be perhaps of
+interest to see whether we generate terms of similar type with vector
+invariant momentum advection. I will try to look what is possible.
+** Spurious Baroclinic Instability
+Spurious baroclinic instability: If I look at 35-37 and 38-40 along
+the baroclinic axis, I should assume $a_y=1$ and $\delta_y=0$. In this
+case the difference between B and C is in the additional averaging in
+the last term on the LHS in 37 compared to 40. If this instability
+were intrinsic for discrete formulations, we could have guessed that B
+grid does not have it because of averaging. But what is the reason? I
+does not look as related to computational baroclinic instability
+caused by vertical averaging, and the fact that it is sensitive to the
+advection in the buoyancy equation is not really revealing.
+
+#+CAPTION: Baroclinic Instability at 12.5 km resolution
+[[../plots/test.svg]]
+
+*** TODO Add dissipation for tri-B and quad-C
+** Galilean Invariance of the Pertubation Equations
+
+#+CAPTION: Symmetric Instability on tri-B with direct-advective discr. at 3.125 km resolution
+[[../plots/gal-tri-B-direct-advective.svg]]
+
+*** DONE Ask Sergey about precise information about his plotting
+*** NEXT Investigate loss of accuracy in viscosity/diffusion operators
+*** TODO Check invariance of the advection operators
