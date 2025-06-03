@@ -22,7 +22,11 @@ end
 const n⃗e = ([ sqrt3//2;  1//2], [-sqrt3//2;  1//2], Num[ 0 ;-1//1])
 const t⃗e = ([-1//2;  sqrt3//2], [-1//2; -sqrt3//2], Num[ 1//1;  0]) # e⃗₃ × n⃗e
 
-_lê(le) = 2//3 * sqrt3//2 * le
+const bb = le * Num[-1//2 -1; sqrt3//2 0]
+
+_Ac(_le) = 1//2 * _le * √3/2 * _le
+_Av(_le) = 2 * _Ac(_le)
+_lê(le) = 2//3 * √3/2 * le
 
 function EC(c)
     ifelse(c[3] == 1,
@@ -224,6 +228,93 @@ function bous_sys()
     eqs = evalat((0,0,1), cout, eqs)
 end
 
+function linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀)
+    vin  = @syms vin₁::Int vin₂::Int
+    vout = @syms vout₁::Int vout₂::Int
+    cin  = @syms cin₁::Int cin₂::Int cin₃::Int
+    cout = @syms cout₁::Int cout₂::Int cout₃::Int
+    @variables ϵ
+    ∂ₜ = Differential(t)
+    ∂₃ = Differential(z)
+
+    u⃗ = [u⃗̄[iTH, cin[1], cin[2], cin[3]] + ϵ * du⃗[iTH, cin[1], cin[2], cin[3]] for iTH=1:2]
+    b = b̄[vin[1], vin[2]] + ϵ * db[vin[1], vin[2]]
+    η = η̄[vin[1], vin[2]] + ϵ * dη[vin[1], vin[2]]
+    w = w̄[vin[1], vin[2]] + ϵ * dw[vin[1], vin[2]]
+    p = p̄[vin[1], vin[2]] + ϵ * dp[vin[1], vin[2]]
+    
+    eqs = [
+        collect(∂ₜ.(evalat(cout, cin, u⃗)) .+ ∇ᵀcc(cout, cin, u⃗, u⃗) .+ ∂₃.(evalat(cout, cin, u⃗) .* av_cv(cout, vin, w)) .+ f₀ * [0 -1; 1 0] * evalat(cout, cin, u⃗) .~ -∇cv(cout, vin, p) .- ∇cv(cout, vin, η))...,
+        ∇ᵀvc(vout, cin, u⃗) + ∂₃(evalat(vout, vin, w)) ~ 0,
+        ∂₃(evalat(vout, vin, p)) - evalat(vout, vin, b) ~ 0, 
+        ∂ₜ(evalat(vout, vin, b)) + ∇ᵀ(vout, cin, vin, u⃗, b) + ∂₃(evalat(vout, vin, w * b)) ~ 0,
+        #∂ₜ(evalat(vout, vin, η)) + ∇ᵀvc(vout, cin, ∫dz.(u⃗)) ~ 0
+    ]
+    eqs = [reduce(vcat, [evalat((0,0,iHc), cout, eqs[iTH]) for iHc=1:2,iTH=1:2]); [evalat((0,0), vout, eq) for eq in eqs[3:end]]]
+
+    eqs = [Symbolics.taylor_coeff(simplify(expand_derivatives(eq.lhs)), ϵ, 1) ~ Symbolics.taylor_coeff(simplify(expand_derivatives(eq.rhs)), ϵ, 1) for eq in eqs]
+
+    expand_derivatives.(eqs)
+end
+
+function fourier_transform_eqs(eqs, k, l; u⃗̂, b̂, η̂, ŵ, p̂, du⃗, db, dη, dw, dp)
+    ϕ = exp.(im * [k * x + l * y for x = -nS:nS, y = -nS:nS])
+    ϕcv = [exp(im * (k * 1//3 + l * -2//3)), exp(im * (k * -1//3 + l * -1//3))]
+    ϕvc = [exp(im * (k * -1//3 + l * 2//3)), exp(im * (k * 1//3 + l * 1//3))]
+    ϕcc = [1                                exp(im * (k * 0 + l * -1//sqrt3));
+             exp(im * (k * 0 + l * 1//sqrt3)) 1]
+
+    subs_c = [
+        merge(
+            Dict(Symbolics.scalarize(du⃗) .=> [ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
+            Dict(Symbolics.scalarize(db) .=> ϕ * ϕcv[iHc] * b̂),
+            Dict(Symbolics.scalarize(dη) .=> ϕ * ϕcv[iHc] * η̂),
+            Dict(Symbolics.scalarize(dp) .=> ϕ * ϕcv[iHc] * p̂),
+            Dict(Symbolics.scalarize(dw) .=> ϕ * ϕcv[iHc] * ŵ),
+        )
+        for iHc = 1:2]
+    subs_v = merge(
+        Dict(Symbolics.scalarize(du⃗) .=> [ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
+        Dict(Symbolics.scalarize(db) .=> ϕ  * b̂),
+        Dict(Symbolics.scalarize(dη) .=> ϕ  * η̂),
+        Dict(Symbolics.scalarize(dp) .=> ϕ  * p̂),
+        Dict(Symbolics.scalarize(dw) .=> ϕ  * ŵ),
+    )
+
+    eqs = [[substitute(eq, subs_c[1]) for eq in eqs[1:2]]; [substitute(eq, subs_c[2]) for eq in eqs[3:4]]; [substitute(eq, subs_v) for eq in eqs[5:end]]]
+end
+
+function eady_problem(ū, v̄; f₀, M², N², H=4000)
+    @variables f₀ M2 N2
+    @variables t z
+
+    u⃗̄ = [ū; v̄] .* ones(1:1, -nS:nS, -nS:nS, 1:2) * (z-H/2) * M²
+    db1 = M² * sqrt3//2
+    b̄ = OffsetArray([x * db1 for x=-nS:nS, y=-nS:nS], -nS:nS, -nS:nS) * z * N²
+    p̄ = OffsetArray([x * db1 for x=-nS:nS, y=-nS:nS], -nS:nS, -nS:nS) * 1//2 * (z-H)^2
+    η̄ = zeros(-nS:nS, -nS:nS)
+    w̄ = zeros(-nS:nS, -nS:nS)
+    # assert geostrophic balance!
+    
+    @variables (du⃗(t,z))[1:2,-nS:nS,-nS:nS,1:2] (db(t,z))[-nS:nS,-nS:nS] (dη(t))[-nS:nS, -nS:nS]
+    @variables (dw(t,z))[-nS:nS, -nS:nS] (dp(t,z))[-nS:nS, -nS:nS]
+
+    eqs = linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀)
+
+    @variables k l
+    @variables (û(t,z))[1:2]::Complex (v̂(t,z))[1:2]::Complex b̂(t,z)::Complex η̂(t)::Complex
+    @variables ŵ(t,z)::Complex p̂(t,z)::Complex
+    u⃗̂ = [û v̂]
+
+    bb = le * Num[-1//2 -1; sqrt3//2 0]
+    k̃ = bb[1,1] * k + bb[2,1] * l
+    l̃ = bb[1,2] * k + bb[2,2] * l
+    eqs = fourier_transform_eqs(eqs, k̃, l̃; u⃗̂, b̂, η̂, ŵ, p̂, du⃗, db, dη, dw, dp)
+    eqs = substitute.(eqs, Ref(Dict([Av => _Av(le), Ac => _Ac(le), lê => _lê(le), sqrt3 => √3])))
+    eqs = [expand_derivatives(eq.lhs) ~ expand_derivatives(eq.rhs) for eq in eqs]
+    eqs = simplify.(eqs; expand=true)
+end
+
 function linearized_bous_sys()
     @variables f₀ M2
     @variables t z
@@ -260,8 +351,8 @@ function linearized_bous_sys()
     eqs = [Symbolics.taylor_coeff(simplify(expand_derivatives(eq.lhs)), ϵ, 1) ~ Symbolics.taylor_coeff(simplify(expand_derivatives(eq.rhs)), ϵ, 1) for eq in eqs]
 
     @variables k l
-    @variables (û(t,z))[1:2] (v̂(t,z))[1:2] b̂(t,z) η̂(t)
-    @variables ŵ(t,z) p̂(t,z)
+    @variables (û(t,z))[1:2]::Complex (v̂(t,z))[1:2]::Complex b̂(t,z)::Complex η̂(t)::Complex
+    @variables ŵ(t,z)::Complex p̂(t,z)::Complex
     u⃗̂ = [û v̂]
     ϕ = exp.(im * [k * x + l * y for x = -nS:nS, y = -nS:nS])
     ϕcv = [exp(im * (k * 1//3 + l * -2//3)), exp(im * (k * -1//3 + l * -1//3))]
@@ -271,22 +362,23 @@ function linearized_bous_sys()
 
     subs_c = [
         merge(
-            Dict(Symbolics.scalarize(du) .=> real([ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
-            Dict(Symbolics.scalarize(db) .=> real(ϕ * ϕcv[iHc] * b̂)),
-            Dict(Symbolics.scalarize(dη) .=> real(ϕ * ϕcv[iHc] * η̂)),
-            Dict(Symbolics.scalarize(dp) .=> real(ϕ * ϕcv[iHc] * p̂)),
-            Dict(Symbolics.scalarize(dw) .=> real(ϕ * ϕcv[iHc] * ŵ)),
+            Dict(Symbolics.scalarize(du) .=> [ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
+            Dict(Symbolics.scalarize(db) .=> ϕ * ϕcv[iHc] * b̂),
+            Dict(Symbolics.scalarize(dη) .=> ϕ * ϕcv[iHc] * η̂),
+            Dict(Symbolics.scalarize(dp) .=> ϕ * ϕcv[iHc] * p̂),
+            Dict(Symbolics.scalarize(dw) .=> ϕ * ϕcv[iHc] * ŵ),
         )
         for iHc = 1:2]
     subs_v = merge(
-            Dict(Symbolics.scalarize(du) .=> real([ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
-            Dict(Symbolics.scalarize(db) .=> real(ϕ  * b̂)),
-            Dict(Symbolics.scalarize(dη) .=> real(ϕ  * η̂)),
-            Dict(Symbolics.scalarize(dp) .=> real(ϕ  * p̂)),
-            Dict(Symbolics.scalarize(dw) .=> real(ϕ  * ŵ)),
+            Dict(Symbolics.scalarize(du) .=> [ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
+            Dict(Symbolics.scalarize(db) .=> ϕ  * b̂),
+            Dict(Symbolics.scalarize(dη) .=> ϕ  * η̂),
+            Dict(Symbolics.scalarize(dp) .=> ϕ  * p̂),
+            Dict(Symbolics.scalarize(dw) .=> ϕ  * ŵ),
         )
 
     eqs = [[substitute(eq, subs_c[1]) for eq in eqs[1:2]]; [substitute(eq, subs_c[2]) for eq in eqs[3:4]]; [substitute(eq, subs_v) for eq in eqs[5:end]]]
+    
     
     # eqs = [simplify(substitute(eqs[1], subs_v); expand=true), substitute(eqs[2], subs_c[1]), substitute(eqs[3], subs_c[1]), substitute(eqs[4], subs_v), substitute(eqs[5], subs_v)]
     eqs

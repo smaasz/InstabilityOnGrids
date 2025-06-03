@@ -41,11 +41,11 @@ end
 export evalat, ∑ 
 
 module TriB
-using ..GridOperators
+import ..GridOperators: evalat, ∑
 import OffsetArrays: OffsetArray
 using Symbolics
 include("TriB/operators.jl")
-export bous_sys
+export bous_sys, eady_problem
 end
 
 module TriC
