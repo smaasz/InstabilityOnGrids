@@ -1,4 +1,4 @@
-#+STARTUP: content
+#+STARTUP: content latexpreview
 #+LATEX_HEADER: \usepackage{amsmath} \usepackage{bm} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_c^v}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
 
 * Introduction
@@ -79,7 +79,66 @@ and we present necessary preliminary information and detailed
 expressions for elementary discrete operators in section ....
 
 * Methods
-** triangular B grid
+Since our focus lies on the triangular B grid discretization
+(cf. \cite{Danilov2017}) and the formulation on a triangular C grid
+(cf. \cite{Korn2013}) these methods will be outlined here whereas the
+hexagonal C grid discretization (cf. \cite{Ringler2013}) and the
+triangular A grid formulation will be relegated to the appendix.
+
+** Triangular B Grid
+On a structured triangular B grid the horizontal velocities are
+collocated at the circumcenters of the triangles. In a finite volume
+formulation their values are interpreted as the mean on the
+resprective triangles which are \textit{called} cells in this
+context. The scalar quantities such as surface height, pressure,
+bouyancy and vertical velocity are staggered with respect to the
+horizontal velocities and are collocated at the vertices of the
+grid. Their values may be interpreted as mean values on the control
+volumes of the dual mesh. Note that the dual mesh of a structured
+triangular grid is a hexagonal grid (see Figure ???).
+
+The horizontal discretization of the governing equations may be
+formulated in terms of discrete analogous of the differential
+operators. Using the notation of \cite{Danilov2017} discrete analogues
+of the gradient of a scalar quantity, the divergence of a flux, and
+the curl of the horizontal velocity are given by the following three
+expressions.
+
+\begin{equation*}
+\big( \nabla \boldsymbol{p}\big)_c
+=\frac{1}{A_c} \sum_{e\in E(c)} \Vec{n}_{c,e}\ell_e \frac{1}{2}\sum_{v\in V(e)} p_v
+\end{equation*}
+
+\begin{equation*}
+\big(\nabla\cdot\boldsymbol{\Vec{F}}\big)_v
+= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} d_e \Vec{n}_{v,e} \cdot \Vec{F}_c
+\end{equation*}
+
+\begin{equation*}
+\Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}}\big) \Big)_v = \sum_{e\in E(v)} \sum_{c\in C(e)} \frac{\ell_e}{2} \Vec{n}_{v,e}^\perp \cdot \Vec{u}_c
+\end{equation*}
+
+The transport of momentum may be either discretized in the flux form
+or the advective form. In both cases different discretizations have
+been proposed \cite{???}. Here the analysis is restricted to ...
+
+
+In the language of crystallography the collocation points of the
+scalar quantities form a hexagonal lattice. Each primitive unit cell
+contains two collocation points of horizontal velocity. In particular,
+these collocation points form two rhombic (centered rectangular)
+lattices. The mismatch in degrees of freedom allows spurious modes
+that need to dissipated by an appropriate viscosity operator
+\cite{???}.
+
+The discrete operators may be interpreted as (pointwise products of)
+discrete convolutions on these lattices. The kernels may be defined on
+a lattice ismorphic to the lattice of the respetive input signal but
+shifted to a collocation point of the respective output signal. The
+Fourier symbol of a (linearized) discrete operator is then given by
+the discrete Fourier transform of the respective convolution kernels.
+
+
 *** geometry
 - cells: two lattices
 - vertices: one lattice
@@ -94,7 +153,7 @@ vectors and constants
 **** divergence
 \begin{equation*}
 \big(\nabla\cdot\boldsymbol{\Vec{F}}\big)_v
-= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} \ell_{\hat{e}} \Vec{n}_{v,e} \cdot \Vec{F}_c
+= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} d_e \Vec{n}_{v,e} \cdot \Vec{F}_c
 \end{equation*}
 **** gradient
 \begin{equation*}
@@ -114,13 +173,34 @@ vectors and constants
 \end{equation*}
 **** horizontal momentum advection
 ***** flux form
+Note that in the flux form the vertical transport of momentum that
+needs to be discretized is the derivative of the vertical momentum
+flux in the vertical direction.
+\begin{align*}
+\frac{\partial}{\partial z} (w u) &\approx \frac{ w_{k+1/2} \big( u_{k+1} + u_k \big) - w_{k-1/2} \big( u_{k} + u_{k-1} \big)}{2 \Delta_z}\\
+&\approx u_k \frac{ w_{k+1/2} - w_{k-1/2} }{\Delta_z} + \frac{1}{2}\Big(w_{k+1/2}\frac{ u_{k+1} - u_k}{\Delta_z} + w_{k-1/2}\frac{u_k - u_{k-1}}{\Delta_z}\Big)
+\end{align*}
+In order to eliminate the vertical velocity using the volume
+conservation we need to subtract the following term from the momementum transport
+\begin{equation*}
+\mathrm{Av} \boldsymbol{w} \odot 
+\end{equation*}
 ****** divergence on scalar control volumes
+For both horizontal directions their advective momentum flux may be
+computed on each cell. The divergence of the advective momentum flux
+must then be averaged from the scalar control volumes back to the
+cells.
 #+NAME: hma-flux-form
 \begin{equation*}
 \Big(\nabla \cdot \big( \boldsymbol{\Vec{u}} \boldsymbol{u_i} \big) \Big)_{c}
-= \mathrm{Av}\Big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i}\big)_v \Big)_c
+= \Big(\mathrm{Av}\big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i})_c\big)_v \Big)_c
 \end{equation*}
 ****** divergence on cells with vector reconstructions onto edges
+At each edge of the cell the mass flux through that edge is
+computed. If multiplied by a velocity component the advective momentum
+flux of the respective component is obtained. The reconstruction of
+the velocity onto an edge may be chosen to depend on the direction of
+the mass flux through the edge by extrapolating from the upwind cell.
 #+NAME: hma-flux-form-divergence-cells
 \begin{subequations}
 \begin{align*}
@@ -130,21 +210,38 @@ Ru_i &= u_{i,\Tilde{c}} + \ell_e/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabla \bolds
 &= \frac{1}{A_c}\sum_{e\in C(e)} \sum_{\Tilde{c}\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_{\Tilde{c},e}\frac{F +  \abs{F}}{2}~Ru_i
 \end{align*}
 \end{subequations}
+
 ***** advective form
 ****** streamline directional derivative using the vector gradient
+A discrete operator for momentum transport in advective form is
+obtained by first computing the full gradient of the horizontal
+velocity and then dot it with the horizontal velocity to obtain the
+change in velocity along a streamline.
 #+NAME: hma-advective-form-vector-gradient
 \begin{equation*}
 \Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
 = \Big(\boldsymbol{\Vec{u}}\cdot \big(\nabla \boldsymbol{u_i}\big)_c\Big)_c
 \end{equation*}
 ***** vector-invariant form
+Another appraoch is to discretize the vector-invariant formulation of
+the momentum transport. The tangential component of the momentum flux
+may be discretized by computing the curl on each scalar control volume
+and average them back to the cells. The component of the momentum flux
+in flow direction may be approximated by calculating the gradient of
+the kinetic energy on each cell. The kinetic energy on the scalar
+control volumes may be obtained my averaging the horizontal velocity.
 #+NAME: hma-vector-invariant-form
 \begin{equation*}
 \Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
 = \bigg( \mathrm{Av}\Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}} \big)_v \Big) \boldsymbol{\Vec{u}^\perp_i} \bigg)_c + \frac{1}{2}\Vec{e}_i\cdot\nabla\bigg( \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v \cdot \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v  \bigg)_c
 \end{equation*}
+****** TODO Investigate properties if gradient of kinetic energy is computed by gradient on cells
 **** horizontal scalar advection
+The transport of scalar quantities (e.g. bouyancy) is discretized in
+the flux form. 
+
 ***** flux form
+The 
 #+NAME: hsa-flux-form
 \begin{subequations}
 \begin{align*}
@@ -171,7 +268,7 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 **** gradient in edge direction
 \begin{equation*}
 \Big( \nabla \boldsymbol{p} \Big)_e
-= \frac{1}{\ell_{\hat{e}}} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_e p_c
+= \frac{1}{d_e} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_e p_c
 \end{equation*}
 **** gradient in tangential direction
 \begin{equation*}
@@ -180,7 +277,7 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 **** Perot reconstructions
 \begin{equation*}
 \Big( \mathrm{P} \boldsymbol{u} \Big)_c
-= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e \ell_{\hat{e}}}{2} \Vec{n}_e u_e
+= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e d_e}{2} \Vec{n}_e u_e
 \end{equation*}
 \begin{equation*}
 \Big( \mathrm{P}^\top \boldsymbol{\Vec{F}} \Big)_e
@@ -188,7 +285,7 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 \end{equation*}
 \begin{equation*}
 \Big( \Tilde{\mathrm{P}} \boldsymbol{u} \Big)_v
-= \frac{1}{A_c} \sum_{e\in E(v)} \frac{\ell_e \ell_{\hat{e}}}{2} \Vec{n}_e u_e
+= \frac{1}{A_c} \sum_{e\in E(v)} \frac{\ell_e d_e}{2} \Vec{n}_e u_e
 \end{equation*}
 \begin{equation*}
 \Big( \Tilde{\mathrm{P}}^\dagger \boldsymbol{\Vec{G}}\Big)_e
@@ -221,7 +318,7 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 \end{equation*}
 **** gradient
 \begin{equation*}
-\big( \nabla \boldsymbol{p} \big)_e = \frac{1}{\ell_{\Hat{e}}} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot \Vec{n}_e p_c
+\big( \nabla \boldsymbol{p} \big)_e = \frac{1}{d_e} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot \Vec{n}_e p_c
 \end{equation*}
 **** curl
 \begin{equation*}
@@ -234,13 +331,13 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 \Tilde{q} &= \frac{1}{2} \sum_{v\in V(\Tilde{e})} \omega_v\\
 \Tilde{q}_e &= \frac{1}{2} \sum_{v\in V(e)} \omega_v\\
 \mathcal{M}\big[\boldsymbol{u}, \boldsymbol{\omega}\big]_e
-&= \frac{1}{\ell_{\hat{e}}} \sum_{\Tilde{e}\in ECP(e)} w_{e,\Tilde{e}} \ell_{\hat{e}} u_e \frac{\Tilde{q}_e + \Tilde{q}}{2}
+&= \frac{1}{d_e} \sum_{\Tilde{e}\in ECP(e)} w_{e,\Tilde{e}} d_e u_e \frac{\Tilde{q}_e + \Tilde{q}}{2}
 \end{align*}
 \end{subequations}
 **** horizontal momentum advection
 \begin{subequations}
 \begin{align*}
-\mathrm{KE} &= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e\ell_{\hat{e}}}{2} u_e^2\\
+\mathrm{KE} &= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_ed_e}{2} u_e^2\\
 \omega &= \mathrm{Curl}(\boldsymbol{u})_v\\
 \Big(\big(\boldsymbol{u}\cdot \nabla\big)\boldsymbol{u} \Big)_e
 &= \mathcal{M}\big[\boldsymbol{u}, \boldsymbol{\omega}\big]_e + \Big(\nabla \mathrm{KE}\Big)_e
