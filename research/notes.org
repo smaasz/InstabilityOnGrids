@@ -1,5 +1,5 @@
 #+STARTUP: content latexpreview
-#+LATEX_HEADER: \usepackage{amsmath} \usepackage{bm} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_c^v}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
+#+LATEX_HEADER: \usepackage{amsmath} \usepackage{bm} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_v^c}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
 
 * Introduction
 At present there are several global ocean general circulation models
@@ -87,7 +87,7 @@ triangular A grid formulation will be relegated to the appendix.
 
 ** Triangular B Grid
 On a structured triangular B grid the horizontal velocities are
-collocated at the circumcenters of the triangles. In a finite volume
+collocated at the centroids of the triangles. In a finite volume
 formulation their values are interpreted as the mean on the
 resprective triangles which are \textit{called} cells in this
 context. The scalar quantities such as surface height, pressure,
@@ -253,6 +253,28 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 &= \frac{1}{A_v}\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \frac{F + (1-\gamma)\abs{F}}{2} Rb
 \end{align*}
 \end{subequations}
+*** system
+splitting into external and internal mode leads to inconsistencies but are reconciled (subcycling) vs. explicit-implicit methods
+
+\begin{equation*}
+\Bar{U}\mathcal{L}_{\theta_U} \boldsymbol{\Vec{u}'}  = \mathcal{N}\Big( \boldsymbol{\Bar{\Vec{u}}}, \boldsymbol{\Vec{u}'} \Big) + \mathcal{N}\Big( \boldsymbol{\Vec{u}'}, \boldsymbol{\Bar{\Vec{u}}} \Big)
+\end{equation*}
+\begin{equation*}
+\Bar{U} \mathcal{S}^{(\text{ad})}_{\theta_U} \boldsymbol{b'} + M^2 \mathcal{S}^{(\text{tr})}_{\theta_U}\boldsymbol{\Vec{u}'}
+\end{equation*}
+
+#+NAME: eq:system-triB
+\begin{subequations}
+\begin{align}
+\frac{\partial\bsu}{\partial t} + \Bar{U} \mathcal{L}^{(x)}_{\theta_U}\Vec{\bsu} - \cos(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw - f_0 \bsv &= -\Vec{e_1} \cdot \nabla(\bsp + \bseta)\\
+\frac{\partial\bsv}{\partial t} + \Bar{U} \mathcal{L}^{(y)}_{\theta_U}\Vec{\bsu} + \sin(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw + f_0 \bsu &= -\Vec{e_2} \cdot \nabla(\bsp + \bseta)\\
+\partial_z \boldsymbol{p}' &= \boldsymbol{b}'\\
+\nabla\cdot \boldsymbol{\Vec{u}'} + \partial_z \boldsymbol{w'} &= 0\\
+\frac{\partial\bsb}{\partial t} + \Bar{U} \mathcal{S}^{(b)}_{\theta_U} \boldsymbol{b'} + M^2 \mathcal{S}^{(u)}_{\theta_U}\boldsymbol{\Vec{u}'}  + N^2 \bsw & = \boldsymbol{0}\\
+\frac{\partial\bseta}{\partial t} + \Bar{U}(z=H) \mathcal{S}^{(\text{ad})}_{\theta_U} \boldsymbol{\eta'}  &= \boldsymbol{w'}(z=H)
+\end{align}
+\end{subequations}
+replace last term in surface elevation equation
 ** triangular C grid
 *** operators
 **** divergence
@@ -300,6 +322,7 @@ Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
 &= \Tilde{\mathcal{M}}\big[\boldsymbol{u}, \boldsymbol{\omega}\big] + \mathcal{M} \nabla \boldsymbol{\mathrm{KE}}
 \end{align*}
 \end{subequations}
+***** TODO implement reconstruction scheme for transport of horizontal momentum
 **** horizontal scalar advection
 \begin{equation*}
 \nabla \cdot \big(\boldsymbol{u}\boldsymbol{b}\big)
@@ -429,9 +452,13 @@ are not numerically equivalent on triangular meshes, in contrast to
 quadrilateral meshes
 #+CAPTION: Symmetric Instability on tri-B with direct-advective discr. at 3.125 km resolution
 [[../plots/ali-tri-B-direct-advective-sym.svg]]
-
-*** TODO Create appropriate plots
-** Influence of Vertical Averaging
+*** TODO Plot for different grids
+*** TODO Explain the worse representation of symmetric instabilities at pi/6 mesh alignment
+**** TODO Compute the real part of averaging operation at different angles
+**** TODO Relate findings to the influence of averaging the vertical velocity to cells
+**** TODO Formulate hypothesis for spurious instabilities at pi/6 in comparison to fully aligned
+*** TODO Check if plots for different schemes of the horizontal momentum advection agree
+** Influence of Averaging of the Vertical Velocity
 Symmetric instability: If we look at (25)-(37) along the symmetric
 axis ($a_x=1$, $\delta_x=0$) and compare with (38)-(40), we conclude
 that the only difference is in the third term on the LHS of (35) and
@@ -465,6 +492,8 @@ between $k_y=2\pi/(8h)$ and $k_y=2\pi/(4h)$, where the B grid is
 already not that bad. In summary, unless we use a very high-order
 advection so that the dissipation is really at grid scales, there is
 no essential difference.
+*** TODO Compare the Fourier symbols of the average operators on triangular B and C grid for different wave vector directions
+*** 
 ** Hollingsworith instability
 The Hollingsworth instability: The last term on the LHS of (41)
 signals about potential problem: Indeed, we do not recover pure
@@ -495,5 +524,10 @@ advection in the buoyancy equation is not really revealing.
 [[../plots/gal-tri-B-direct-advective.svg]]
 
 *** DONE Ask Sergey about precise information about his plotting
+Use the flow speed at the top of the surface
+i.e. $\Bar{U}(z=H) = M^2 H/2$ and flow direction not aligned with the x-axis.
+
+*** NEXT Create plot with different average flow speeds
+The flow speeds should be of order $M^2 H/2$ and the flow direction
+not aligned with the x-axis.
 *** NEXT Investigate loss of accuracy in viscosity/diffusion operators
-*** TODO Check invariance of the advection operators
