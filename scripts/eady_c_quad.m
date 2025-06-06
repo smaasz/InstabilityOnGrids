@@ -1,6 +1,6 @@
 % Eady setup, rectangular C-grid, baroclinic and symmetric 
 % instability
-  a=12500.0;               % -- side of quad
+  a=6250.0;               % -- side of quad
   
   theta=0;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
   thetaw=0;                % -- mean flow direction
@@ -94,6 +94,7 @@
  df.f0 = f0;
  df.a = a/1000;
  df.type = "standard";
+ df.u0 = norm([U*ones(Nz,1)/Nz, V*ones(Nz,1)/Nz]);
  df.grid = "quad-C";
  df.N = N;
  df.Ri = Ri;
@@ -106,7 +107,7 @@
 
  data = jsonencode(df);
 
- f = fopen('/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl','a');
+ f = fopen('/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/data/data.jsonl','a');
  fprintf(f, '%s\n', data);
  fclose(f);
  

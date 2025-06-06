@@ -1,10 +1,10 @@
 % Eady setup, triangular B-grid, baroclinic and symmetric 
 % instability
-  a=3125.000;                % -- side of triangle
+a=12500.0;                % -- side of triangle
   h=a*sqrt(3)/2;           % -- the height of triangle 
   
-  theta=pi/6 + pi/2;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
-  thetaw=pi/6;                % -- mean flow direction
+  theta= pi/6;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
+  thetaw= pi/6;                % -- mean flow direction
   
   mom_a=0;
 
@@ -12,7 +12,7 @@
   g=100000000;               % To effectively impose the rigid lid
   %g=10;
   N=0.001; N2=N*N;
-  Ri=0.5;                  % -- Richardson number
+  Ri=100;                  % -- Richardson number
   M2=abs(N*f0)/sqrt(Ri);        % -- M^2, i. e. the horizontal stratification
   Nz=64;                   % -- the number of vertical layers
   H0=4000;                 % -- fluid depth
@@ -134,9 +134,9 @@
      % if [-1,M^*;M,-1] is used, 12/a^2 gives a Laplacian
      %
      kappas=0.00005*(12)^2/a;  % corresponds to biharmonic;0.0005 for mom_adv=1
-     %kappa=0.;
-     %kappas=0.;
-     %kappad=0.;
+     kappa=0.;
+     kappas=0.;
+     kappad=0.;
      Visc=kappa*diag(ones([1,Nz]));
      Dif=kappad*diag(ones([1,Nz]));
      VV=diag(ones([1,Nz])); 
@@ -226,8 +226,8 @@
 
  df.f0 = f0;
  df.a = a * 1e-3;
- df.type = "standard";
- df.u0 = -M2/f0 * H0/2;
+ df.type = "flux";
+ df.u0 = norm([U*ones(Nz,1)/Nz, V*ones(Nz,1)/Nz]);
  df.grid = "tri-B";
  df.N = N;
  df.Ri = Ri;
@@ -238,7 +238,10 @@
  df.ks = Kvec/a;
  df.vs = w;
 
- %data = jsonencode(df);
+ data = jsonencode(df);
 
+ f = fopen('/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/data/data.jsonl','a');
+ fprintf(f, '%s\n', data);
+ fclose(f);
  
 plot(Kvec/a, w*N/abs(M2))

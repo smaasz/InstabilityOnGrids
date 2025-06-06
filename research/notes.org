@@ -493,7 +493,7 @@ already not that bad. In summary, unless we use a very high-order
 advection so that the dissipation is really at grid scales, there is
 no essential difference.
 *** TODO Compare the Fourier symbols of the average operators on triangular B and C grid for different wave vector directions
-*** 
+*** P
 ** Hollingsworith instability
 The Hollingsworth instability: The last term on the LHS of (41)
 signals about potential problem: Indeed, we do not recover pure

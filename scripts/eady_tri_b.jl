@@ -5,7 +5,7 @@ using MultiplesOfPi
 import Dates
 import JSON3
 
-includet("/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/src/grids.jl")
+includet("/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/src/grids.jl")
 using .FourierSymbols: rot, e₁
 
 nk = 100 # number of wavenumbers
@@ -49,7 +49,7 @@ for (i,k) in enumerate(experiment[:ks])
 end
 experiment[:vs] = ms
 #experiment[:vecs] = vecs
-open("/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl", "a") do f
+open("/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/data/data.jsonl", "a") do f
     jso = JSON3.write(experiment)
     write(f, @sprintf("%s\n", jso))
 end
@@ -94,7 +94,7 @@ for row in eachrow(df)
     end
     row[:vs] = ms
     #row[:vecs] = vecs
-    open("/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl", "a") do f
+    open("/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/data/data.jsonl", "a") do f
         jso = JSON3.write(convert(NamedTuple, row))
         write(f, @sprintf("%s\n", jso))
     end

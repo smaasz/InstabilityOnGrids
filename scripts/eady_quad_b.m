@@ -1,15 +1,15 @@
 % Eady setup, rectangular B-grid, baroclinic and symmetric 
 % instability
-  a=12500.0;               % -- side of quad
+  a=3125.0;               % -- side of quad
   
-  theta=0;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
-  thetaw=0;                % -- mean flow direction
+  theta=pi/6+pi/2;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
+  thetaw=pi/6;                % -- mean flow direction
   
   f0=-0.0001;
   g=100000000;               % To effectively impose the rigid lid
-  g=10;
+                             %  g=10;
   N=0.001; N2=N*N;
-  Ri=100;                  % -- Richardson number
+  Ri=1/2;                  % -- Richardson number
   M2=abs(N*f0)/sqrt(Ri);        % -- M^2, i. e. the horizontal stratification
   Nz=64;                   % -- the number of vertical layers
   H0=4000;                 % -- fluid depth
@@ -103,6 +103,7 @@
  df.f0 = f0;
  df.a = a * 1e-3;
  df.type = "standard";
+ df.u0 = norm([U*ones(Nz,1)/Nz, V*ones(Nz,1)/Nz]);
  df.grid = "quad-B";
  df.N = N;
  df.Ri = Ri;
@@ -115,7 +116,7 @@
 
  data = jsonencode(df);
 
- f = fopen('/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl','a');
+ f = fopen('/Users/stmaas001/Projects/OceanFlows/InstabilityOnGrids/data/data.jsonl','a');
  fprintf(f, '%s\n', data);
  fclose(f);
 

@@ -175,6 +175,7 @@
  df.f0 = f0;
  df.a = a * 1e-3;
  df.type = "ICON-mimetic";
+ df.u0 = norm([U*ones(Nz,1)/Nz, V*ones(Nz,1)/Nz]);
  df.grid = "tri-C";
  df.N = N;
  df.Ri = Ri;
