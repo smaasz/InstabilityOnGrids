@@ -196,39 +196,216 @@ end
 
 const nS = 3
 
-@register_symbolic ∫dz(x)
+# function bous_sys(cout, vout, cin, vin, u⃗, w, η, p, b, t, z)
+#     @variables f₀
+#     @variables t z
+#     @variables (u(t,z))[1:2,-nS:nS,-nS:nS,-nS:nS] (b(t,z))[-nS:nS,-nS:nS] (η(t))[-nS:nS, -nS:nS]
+#     @variables (w(t,z))[-nS:nS, -nS:nS] (p(t,z))[-nS:nS, -nS:nS]
+#     vin  = @syms vin₁::Int vin₂::Int
+#     vout = @syms vout₁::Int vout₂::Int
+#     cin  = @syms cin₁::Int cin₂::Int cin₃::Int
+#     cout = @syms cout₁::Int cout₂::Int cout₃::Int
+#     ∂ₜ = Differential(t)
+#     ∂₃ = Differential(z)
 
-function bous_sys()
-    @variables f₀
-    @variables t z
-    @variables (u(t,z))[1:2,-nS:nS,-nS:nS,-nS:nS] (b(t,z))[-nS:nS,-nS:nS] (η(t))[-nS:nS, -nS:nS]
-    @variables (w(t,z))[-nS:nS, -nS:nS] (p(t,z))[-nS:nS, -nS:nS]
+#     u⃗ = [u[iTH, cin[1], cin[2], cin[3]] for iTH=1:2]
+#     b = b[vin[1], vin[2]]
+#     η = η[vin[1], vin[2]]
+#     w = w[vin[1], vin[2]]
+#     p = p[vin[1], vin[2]]
+    
+
+#     eqs = [
+#         ∇ᵀvc(vout, cin, u⃗) + ∂₃(evalat(vout, vin, w)) ~ 0,
+#         ∂ₜ.(evalat(cout, cin, u⃗)) .+ ∇ᵀcc(cout, cin, u⃗, u⃗) .+ ∂₃.(evalat(cout, cin, u⃗) .* av_cv(cout, vin, w)) .+ f₀ * [0 -1; 1 0] * evalat(cout, cin, u⃗) .~ -∇cv(cout, vin, p) .- ∇cv(cout, vin, η),
+#         ∂₃(evalat(vout, vin, p)) - evalat(vout, vin, b) ~ 0, 
+#         ∂ₜ(evalat(vout, vin, b)) + ∇ᵀ(vout, cin, vin, u⃗, b) + ∂₃(evalat(vout, vin, w * b)) ~ 0,
+#         ∂ₜ(evalat(vout, vin, η)) + ∇ᵀvc(vout, cin, ∫dz.(u⃗)) ~ 0
+#     ]
+#     eqs = evalat((0,0), vout, eqs)
+#     eqs = evalat((0,0,1), cout, eqs)
+# end
+
+@kwdef struct BoussinesqSystem
+    momentum_transport_eqs::Vector{Equation}
+    hydrostatic_balance_eq::Equation
+    continuity_eq::Equation
+    buoyancy_transport_eq::Equation
+    surface_elevation_eq::Equation
+end
+
+function BoussinesqSystem(cout, vout, cin, vin, t, z, u⃗, w, η, p, b, ∫∇ᵀu⃗dz, f₀)
+    ∂ₜ = Differential(t)
+    ∂₃ = Differential(z)
+
+    momentum_transport_eqs = collect(∂ₜ.(evalat(cout, cin, u⃗)) .+ ∇ᵀcc(cout, cin, u⃗, u⃗) .+ ∂₃.(evalat(cout, cin, u⃗) .* av_cv(cout, vin, w)) .+ f₀ * [0 -1; 1 0] * evalat(cout, cin, u⃗) .~ -∇cv(cout, vin, p) .- ∇cv(cout, vin, η))
+    hydrostatic_balance_eq = ∂₃(evalat(vout, vin, p)) - evalat(vout, vin, b) ~ 0
+    continuity_eq          = ∇ᵀvc(vout, cin, u⃗) + ∂₃(evalat(vout, vin, w)) ~ 0
+    buoyancy_transport_eq  = ∂ₜ(evalat(vout, vin, b)) + ∇ᵀ(vout, cin, vin, u⃗, b) + ∂₃(evalat(vout, vin, w * b)) ~ 0
+    surface_elevation_eq   = ∂ₜ(evalat(vout, vin, η)) + evalat(vout, vin, ∫∇ᵀu⃗dz) ~ 0
+    
+    BoussinesqSystem(momentum_transport_eq, hydrostatic_balance_eq, continuity_eq, buoyancy_transport_eq, surface_elevation_eq)
+end
+
+linearize_eq(eq, ϵ) = Symbolics.taylor_coeff(simplify(expand_derivatives(eq.lhs)), ϵ, 1) ~ Symbolics.taylor_coeff(simplify(expand_derivatives(eq.rhs)), ϵ, 1)
+
+function linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀) #∫∇ᵀu⃗̄dz, ∫∇ᵀdu⃗dz
     vin  = @syms vin₁::Int vin₂::Int
     vout = @syms vout₁::Int vout₂::Int
     cin  = @syms cin₁::Int cin₂::Int cin₃::Int
     cout = @syms cout₁::Int cout₂::Int cout₃::Int
-    ∂ₜ = Differential(t)
-    ∂₃ = Differential(z)
+    @variables ϵ
+ 
+    u⃗      = [u⃗̄[iTH, cin[1], cin[2], cin[3]] + ϵ * du⃗[iTH, cin[1], cin[2], cin[3]] for iTH=1:2]
+    b      = b̄[vin[1], vin[2]] + ϵ * db[vin[1], vin[2]]
+    η      = η̄[vin[1], vin[2]] + ϵ * dη[vin[1], vin[2]]
+    w      = w̄[vin[1], vin[2]] + ϵ * dw[vin[1], vin[2]]
+    p      = p̄[vin[1], vin[2]] + ϵ * dp[vin[1], vin[2]]
+    ∫∇ᵀu⃗dz = ∫∇ᵀu⃗̄dz[vin[1], vin[2]] + ϵ * ∫∇ᵀdu⃗dz[vin[1], vin[2]]
 
-    u⃗ = [u[iTH, cin[1], cin[2], cin[3]] for iTH=1:2]
-    b = b[vin[1], vin[2]]
-    η = η[vin[1], vin[2]]
-    w = w[vin[1], vin[2]]
-    p = p[vin[1], vin[2]]
+    bous_sys = BoussinesqSystem(cout, vout, cin, vin, t, z, u⃗, w, η, p, b, ∫∇ᵀu⃗dz, f₀)
+    # make assumption that linearized system has horizontally constant coefficients; how to assert this?
+
+    momentum_transport_eqs = Equation[]
+    for iTH=1:2
+        for iHc=1:2
+            eq = evalat((0,0,iHc), cout, bous_sys.momentum_transport_eqs[iTH])
+            eq = linearize_eq(eq, ϵ)
+            push!(momentum_transport_eqs, eq)
+        end
+    end
+
+    hydrostatic_balance_eq = let
+        eq = evalat((0,0), vout, bous_sys.hydrostatic_balance_eq)
+        eq = linearize_eq(eq, ϵ)
+    end
+
+    continuity_eq = let
+        eq = evalat((0,0), vout, bous_sys.continuity_eq)
+        eq = linearize_eq(eq, ϵ)
+    end
+
+    buoyancy_transport_eq = let
+        eq = evalat((0,0), vout, bous_sys.buoyancy_transport_eq)
+        eq = linearize_eq(eq, ϵ)
+    end
     
+    surface_elevation_eq = let
+        eq = evalat((0,0), vout, bous_sys.hydrostatic_balance_eq)
+        eq = linearize_eq(eq, ϵ)
+    end
 
-    eqs = [
-        ∇ᵀvc(vout, cin, u⃗) + ∂₃(evalat(vout, vin, w)) ~ 0,
-        ∂ₜ.(evalat(cout, cin, u⃗)) .+ ∇ᵀcc(cout, cin, u⃗, u⃗) .+ ∂₃.(evalat(cout, cin, u⃗) .* av_cv(cout, vin, w)) .+ f₀ * [0 -1; 1 0] * evalat(cout, cin, u⃗) .~ -∇cv(cout, vin, p) .- ∇cv(cout, vin, η),
-        ∂₃(evalat(vout, vin, p)) - evalat(vout, vin, b) ~ 0, 
-        ∂ₜ(evalat(vout, vin, b)) + ∇ᵀ(vout, cin, vin, u⃗, b) + ∂₃(evalat(vout, vin, w * b)) ~ 0,
-        ∂ₜ(evalat(vout, vin, η)) + ∇ᵀvc(vout, cin, ∫dz.(u⃗)) ~ 0
-    ]
-    eqs = evalat((0,0), vout, eqs)
-    eqs = evalat((0,0,1), cout, eqs)
+    BoussinesqSystem(momentum_transport_eq, hydrostatic_balance_eq, continuity_eq, buoyancy_transport_eq, surface_elevation_eq)
 end
 
-function linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀)
+function fourier_transform_eqs(eqs, k, l; u⃗̂, b̂, η̂, ŵ, p̂, ∫∇ᵀu⃗̂dz, du⃗, db, dη, dw, dp, ∫∇ᵀdu⃗dz)
+    ϕ = exp.(im * [k * x + l * y for x = -nS:nS, y = -nS:nS])
+    ϕcv = [exp(im * (k * 1//3 + l * -2//3)), exp(im * (k * -1//3 + l * -1//3))]
+    ϕvc = [exp(im * (k * -1//3 + l * 2//3)), exp(im * (k * 1//3 + l * 1//3))]
+    ϕcc = [1                                exp(im * (k * 0 + l * -1//sqrt3));
+             exp(im * (k * 0 + l * 1//sqrt3)) 1]
+
+    bous_sys_components = Dict{Symbol, BoussinesqSystem}()
+    for component in [real, imag]
+        subs_c = [
+            merge(
+                Dict(Symbolics.scalarize(du⃗) .=> component.([ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
+                Dict(Symbolics.scalarize(db) .=> component.(ϕ * ϕcv[iHc] * b̂)),
+                Dict(Symbolics.scalarize(dη) .=> component.(ϕ * ϕcv[iHc] * η̂)),
+                Dict(Symbolics.scalarize(dp) .=> component.(ϕ * ϕcv[iHc] * p̂)),
+                Dict(Symbolics.scalarize(dw) .=> component.(ϕ * ϕcv[iHc] * ŵ)),
+                Dict(Symbolics.scalarize(∫∇ᵀdu⃗dz) .=> component.(ϕ * ϕcv[iHc] * ∫∇ᵀu⃗̂dz)),
+            )
+            for iHc = 1:2]
+        momentum_transport_eqs = [
+            [substitute(eq, subs_c[1]) for eq in bous_sys.momentum_transport_eqs[1:2]];
+            [substitute(eq, subs_c[2]) for eq in bous_sys.momentum_transport_eqs[3:4]]
+        ]
+        
+        subs_v = merge(
+            Dict(Symbolics.scalarize(du⃗) .=> component.([ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
+            Dict(Symbolics.scalarize(db) .=> component.(ϕ  * b̂)),
+            Dict(Symbolics.scalarize(dη) .=> component.(ϕ  * η̂)),
+            Dict(Symbolics.scalarize(dp) .=> component.(ϕ  * p̂)),
+            Dict(Symbolics.scalarize(dw) .=> component.(ϕ  * ŵ)),
+            Dict(Symbolics.scalarize(∫∇ᵀdu⃗dz) .=> component.(ϕ * ∫∇ᵀu⃗̂dz)),
+        )
+        bous_eqs = Dict{Symbol, Equation}()
+        for eqn in [:hydrostatic_balance_eq, :continuity_eq, :buoyancy_transport_eq, :surface_elevation_eq]
+            eq = get_property(bous_sys, eqn)
+            bous_eqs[eqn] = substitute(eq, subs_v)
+        end
+        bous_sys_components[Symbol(component)] = BoussinesqSystem(momentum_transport_eqs, bous_eqs...)
+    end
+    NamedTuple(bous_sys_components)
+end
+
+function vertical_discretization()
+    new_bous_sys_components = Dict{Symbol, ODESystem}()
+    for (component, bous_sys) in pairs(bous_sys_components)
+
+        ∫̲∇ᵀu⃗̂dz = let # integrate from -H to z
+            ∇ᵀu⃗̂ = -symbolic_linear_solve(bous_sys.continuity_eq, ∂₃(ŵ))
+            ∇ᵀu̲⃗̂ = [substitute(∇ᵀu⃗̂z, Dict([ û[iTH] => û̲[iV, iTH], v̂[iTH] => v̲̂[iV, iTH] for iTH=1:2])) for iV=1:Nz]
+            dz * cumsum(∇ᵀu̲⃗̂)
+        end
+        ŵ̲ = -∫̲∇ᵀu⃗̂dz
+        p̲̂ = let
+            _b̂    = symbolic_linear_solve(bous_sys.hydrostatic_balance_eq, ∂₃(p̂))
+            _b̲̂    = [substitute(_b̂, Dict([b̂ => b̲̂[iV]])) for iV=1:Nz]
+            avb̲̂   = [[0.5 * _b̲̂[i] + 0.5 * _b̲̂[i+1] for i=1:Nz-1]; [0.0]]
+            ∫̲b̂dz  =  -dz * reverse(cumsum(reverse(avb̲̂))) #integrate from 0 to z
+            ∫̲b̂dz .- mean(∫̲b̂dz)
+        end       
+
+        for i=1:Nz
+            subs = Dict([
+                ŵ      => ŵ̲[iV],
+                û[1]   => û̲[iV,1],
+                û[2]   => û̲[iV,2],
+                v̂[1]   => v̲̂[iV,1],
+                v̂[2]   => v̲̂[iV,2],
+                b̂      => b̲̂[iV],
+                p̂      => p̲̂[iV],
+                ∫∇ᵀu⃗̂dz => ∫̲∇ᵀu⃗̂dz[end]
+            ])
+            for eq in bous_sys.momentum_transport_eqs
+                push!(new_eqs, substitute(eq, subs))
+            end
+            push!(new_eqs, substitute(bous_sys.buoyancy_eq, subs))
+        end
+
+        #create ODESystem
+    end
+
+
+
+        
+        new_bous_sys_components[component] = 1
+    end
+    NamedTuple(new_bous_sys_components)
+end
+    
+
+    
+    for i=1:Nz
+        subs = Dict([
+            ŵ      => ŵ̲[iV],
+            û[1]   => û̲[iV,1],
+            û[2]   => û̲[iV,2],
+            v̂[1]   => v̲̂[iV,1],
+            v̂[2]   => v̲̂[iV,2],
+            b̂      => b̲̂[iV],
+            p̂      => p̲̂[iV],
+            ∫∇ᵀu⃗̂dz => ∫̲∇ᵀu⃗̂dz[end]
+        ])
+        for eq in eqs
+            push!(new_eqs, substitute(eq, subs))
+        end
+    end
+end
+
+function linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀) #∫∇ᵀu⃗̄dz, ∫∇ᵀdu⃗dz
     vin  = @syms vin₁::Int vin₂::Int
     vout = @syms vout₁::Int vout₂::Int
     cin  = @syms cin₁::Int cin₂::Int cin₃::Int
@@ -242,22 +419,24 @@ function linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, d
     η = η̄[vin[1], vin[2]] + ϵ * dη[vin[1], vin[2]]
     w = w̄[vin[1], vin[2]] + ϵ * dw[vin[1], vin[2]]
     p = p̄[vin[1], vin[2]] + ϵ * dp[vin[1], vin[2]]
+    #∫∇ᵀu⃗dz = ∫∇ᵀu⃗̄dz[vin[1], vin[2]] + ϵ * ∫∇ᵀdu⃗dz[vin[1], vin[2]]
     
     eqs = [
         collect(∂ₜ.(evalat(cout, cin, u⃗)) .+ ∇ᵀcc(cout, cin, u⃗, u⃗) .+ ∂₃.(evalat(cout, cin, u⃗) .* av_cv(cout, vin, w)) .+ f₀ * [0 -1; 1 0] * evalat(cout, cin, u⃗) .~ -∇cv(cout, vin, p) .- ∇cv(cout, vin, η))...,
         ∇ᵀvc(vout, cin, u⃗) + ∂₃(evalat(vout, vin, w)) ~ 0,
         ∂₃(evalat(vout, vin, p)) - evalat(vout, vin, b) ~ 0, 
         ∂ₜ(evalat(vout, vin, b)) + ∇ᵀ(vout, cin, vin, u⃗, b) + ∂₃(evalat(vout, vin, w * b)) ~ 0,
-        #∂ₜ(evalat(vout, vin, η)) + ∇ᵀvc(vout, cin, ∫dz.(u⃗)) ~ 0
+        #∂ₜ(evalat(vout, vin, η)) + evalat(vout, vin, ∫∇ᵀu⃗dz) ~ 0
     ]
     eqs = [reduce(vcat, [evalat((0,0,iHc), cout, eqs[iTH]) for iHc=1:2,iTH=1:2]); [evalat((0,0), vout, eq) for eq in eqs[3:end]]]
 
     eqs = [Symbolics.taylor_coeff(simplify(expand_derivatives(eq.lhs)), ϵ, 1) ~ Symbolics.taylor_coeff(simplify(expand_derivatives(eq.rhs)), ϵ, 1) for eq in eqs]
 
+    @show expand_derivatives.(eqs)
     expand_derivatives.(eqs)
 end
 
-function fourier_transform_eqs(eqs, k, l; u⃗̂, b̂, η̂, ŵ, p̂, du⃗, db, dη, dw, dp)
+function fourier_transform_eqs(eqs, k, l; u⃗̂, b̂, η̂, ŵ, p̂, du⃗, db, dη, dw, dp) # ∫∇ᵀu⃗̂dz, ∫∇ᵀdu⃗dz
     ϕ = exp.(im * [k * x + l * y for x = -nS:nS, y = -nS:nS])
     ϕcv = [exp(im * (k * 1//3 + l * -2//3)), exp(im * (k * -1//3 + l * -1//3))]
     ϕvc = [exp(im * (k * -1//3 + l * 2//3)), exp(im * (k * 1//3 + l * 1//3))]
@@ -266,26 +445,70 @@ function fourier_transform_eqs(eqs, k, l; u⃗̂, b̂, η̂, ŵ, p̂, du⃗, db
 
     subs_c = [
         merge(
-            Dict(Symbolics.scalarize(du⃗) .=> [ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
-            Dict(Symbolics.scalarize(db) .=> ϕ * ϕcv[iHc] * b̂),
-            Dict(Symbolics.scalarize(dη) .=> ϕ * ϕcv[iHc] * η̂),
-            Dict(Symbolics.scalarize(dp) .=> ϕ * ϕcv[iHc] * p̂),
-            Dict(Symbolics.scalarize(dw) .=> ϕ * ϕcv[iHc] * ŵ),
+            Dict(Symbolics.scalarize(du⃗) .=> imag.([ϕ[x,y] * ϕcc[iHc,jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
+            Dict(Symbolics.scalarize(db) .=> imag.(ϕ * ϕcv[iHc] * b̂)),
+            Dict(Symbolics.scalarize(dη) .=> imag.(ϕ * ϕcv[iHc] * η̂)),
+            Dict(Symbolics.scalarize(dp) .=> imag.(ϕ * ϕcv[iHc] * p̂)),
+            Dict(Symbolics.scalarize(dw) .=> imag.(ϕ * ϕcv[iHc] * ŵ)),
+            #Dict(Symbolics.scalarize(∫∇ᵀdu⃗dz) .=> imag.(ϕ * ϕcv[iHc] * ∫∇ᵀu⃗̂dz)),
         )
         for iHc = 1:2]
     subs_v = merge(
-        Dict(Symbolics.scalarize(du⃗) .=> [ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2]),
-        Dict(Symbolics.scalarize(db) .=> ϕ  * b̂),
-        Dict(Symbolics.scalarize(dη) .=> ϕ  * η̂),
-        Dict(Symbolics.scalarize(dp) .=> ϕ  * p̂),
-        Dict(Symbolics.scalarize(dw) .=> ϕ  * ŵ),
+        Dict(Symbolics.scalarize(du⃗) .=> imag.([ϕ[x,y] * ϕvc[jHc] * u⃗̂[jTH,jHc] for jTH=1:2,x=1:size(ϕ,1),y=1:size(ϕ,2),jHc=1:2])),
+        Dict(Symbolics.scalarize(db) .=> imag.(ϕ  * b̂)),
+        Dict(Symbolics.scalarize(dη) .=> imag.(ϕ  * η̂)),
+        Dict(Symbolics.scalarize(dp) .=> imag.(ϕ  * p̂)),
+        Dict(Symbolics.scalarize(dw) .=> imag.(ϕ  * ŵ)),
+        #Dict(Symbolics.scalarize(∫∇ᵀdu⃗dz) .=> imag.(ϕ * ∫∇ᵀu⃗̂dz)),
     )
 
     eqs = [[substitute(eq, subs_c[1]) for eq in eqs[1:2]]; [substitute(eq, subs_c[2]) for eq in eqs[3:4]]; [substitute(eq, subs_v) for eq in eqs[5:end]]]
 end
 
+# let ∇ᵀu⃗̂ := 
+# let ∫∇ᵀu⃗̂dz := dz * cumsum(∇ᵀu⃗̂)
+# loop over i=1:Nz and replace
+# 
+# ŵ(t,z)      => -∫̲∇ᵀu⃗̂dz[i]
+# û(t,z)[iTH] => û̲(t)[i, iTH]
+# v̂(t,z)[iTH] => v̲̂(t)[i, iTH]
+# b̂(t,z)      => b̲̂(t)[i]
+# η̂(t)        => η̂(t)
+# ∫∇ᵀu⃗̂dz      => ∫̲∇ᵀu⃗̂dz[end]
+function vertical_discretization()
+    ∫̲∇ᵀu⃗̂dz = let # integrate from -H to z
+        ∇ᵀu⃗̂ = -symbolic_linear_solve(continuity_eq, ∂₃(ŵ))
+        ∇ᵀu̲⃗̂ = [substitute(∇ᵀu⃗̂z, Dict([ û[iTH] => û̲[iV, iTH], v̂[iTH] => v̲̂[iV, iTH] for iTH=1:2])) for iV=1:Nz]
+        dz * cumsum(∇ᵀu̲⃗̂)
+    end
+    ŵ̲ = -∫̲∇ᵀu⃗̂dz
+    p̲̂ = let
+        _b̂    = symbolic_linear_solve(hydrstatic_balance_eq, ∂₃(p̂))
+        _b̲̂    = [substitute(_b̂, Dict([b̂ => b̲̂[iV]])) for iV=1:Nz]
+        avb̲̂   = [[0.5 * _b̲̂[i] + 0.5 * _b̲̂[i+1] for i=1:Nz-1]; [0.0]]
+        ∫̲b̂dz  =  -dz * reverse(cumsum(reverse(avb̲̂))) #integrate from 0 to z
+        ∫̲b̂dz .- mean(∫̲b̂dz)
+    end
+    
+    for i=1:Nz
+        subs = Dict([
+            ŵ      => ŵ̲[iV],
+            û[1]   => û̲[iV,1],
+            û[2]   => û̲[iV,2],
+            v̂[1]   => v̲̂[iV,1],
+            v̂[2]   => v̲̂[iV,2],
+            b̂      => b̲̂[iV],
+            p̂      => p̲̂[iV],
+            ∫∇ᵀu⃗̂dz => ∫̲∇ᵀu⃗̂dz[end]
+        ])
+        for eq in eqs
+            push!(new_eqs, substitute(eq, subs))
+        end
+    end
+end
+
 function eady_problem(ū, v̄; f₀, M², N², H=4000)
-    @variables f₀ M2 N2
+    #@variables f₀ M2 N2
     @variables t z
 
     u⃗̄ = [ū; v̄] .* ones(1:1, -nS:nS, -nS:nS, 1:2) * (z-H/2) * M²
@@ -297,13 +520,15 @@ function eady_problem(ū, v̄; f₀, M², N², H=4000)
     # assert geostrophic balance!
     
     @variables (du⃗(t,z))[1:2,-nS:nS,-nS:nS,1:2] (db(t,z))[-nS:nS,-nS:nS] (dη(t))[-nS:nS, -nS:nS]
+    #@variables (∫∇ᵀdu⃗dz(t,z))[-nS:nS,-nS:nS]
     @variables (dw(t,z))[-nS:nS, -nS:nS] (dp(t,z))[-nS:nS, -nS:nS]
 
     eqs = linearize_bous_sys(t, z; u⃗̄, b̄, η̄, w̄, p̄, du⃗, db, dη, dw, dp, f₀)
 
     @variables k l
-    @variables (û(t,z))[1:2]::Complex (v̂(t,z))[1:2]::Complex b̂(t,z)::Complex η̂(t)::Complex
-    @variables ŵ(t,z)::Complex p̂(t,z)::Complex
+    @variables (û(t,z))[1:2] (v̂(t,z))[1:2] b̂(t,z) η̂(t)
+    #@variables ∫∇ᵀu⃗̂dz(t,z)
+    @variables ŵ(t,z) p̂(t,z)
     u⃗̂ = [û v̂]
 
     bb = le * Num[-1//2 -1; sqrt3//2 0]
