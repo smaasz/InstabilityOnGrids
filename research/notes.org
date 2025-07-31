@@ -89,13 +89,27 @@ triangular A grid formulation will be relegated to the appendix.
 On a structured triangular B grid the horizontal velocities are
 collocated at the centroids of the triangles. In a finite volume
 formulation their values are interpreted as the mean on the
-resprective triangles which are \textit{called} cells in this
+resprective triangles which are called \textit{cells} in this
 context. The scalar quantities such as surface height, pressure,
 bouyancy and vertical velocity are staggered with respect to the
 horizontal velocities and are collocated at the vertices of the
 grid. Their values may be interpreted as mean values on the control
 volumes of the dual mesh. Note that the dual mesh of a structured
 triangular grid is a hexagonal grid (see Figure ???).
+
+| Notation        | Interpretation on Tri-B                   |
+|-----------------+-------------------------------------------|
+| c               | cell                                      |
+| v               | dual control volume                       |
+| e               | face (edge) between control volumes       |
+| $\Vec{n}_{c,e}$ | normal to cell c at face e                |
+| $\Vec{n}_{v,e}$ | normal to dual control volume v at face e |
+| $\ell_e$        | area (length) of the face (edge) e        |
+| $E(c)$          | set of faces of cell c                    |
+| $E(v)$          | set of faces of dual control volume v     |
+| $C(e)$          | set of cells with face e                  |
+| $V(e)$          | set of dual control volumes with face e   |
+|-----------------+-------------------------------------------|
 
 The horizontal discretization of the governing equations may be
 formulated in terms of discrete analogous of the differential
@@ -127,7 +141,7 @@ In the language of crystallography the collocation points of the
 scalar quantities form a hexagonal lattice. Each primitive unit cell
 contains two collocation points of horizontal velocity. In particular,
 these collocation points form two rhombic (centered rectangular)
-lattices. The mismatch in degrees of freedom allows spurious modes
+lattices. The mismatch in degrees of freedom allows for spurious modes
 that need to dissipated by an appropriate viscosity operator
 \cite{???}.
 
@@ -173,18 +187,36 @@ vectors and constants
 \end{equation*}
 **** horizontal momentum advection
 ***** flux form
-Note that in the flux form the vertical transport of momentum that
-needs to be discretized is the derivative of the vertical momentum
-flux in the vertical direction.
+The simplest discretization of the horizontal momentum flux through
+the horizontal faces on a Lorenz grid reconstructs the (transported)
+horizontal velocities onto the mid-level faces and averages the
+vertical velocities. Here the reconstruction is defined by the average
+of the horizontal velocities of the cells adjacent to the face.
 \begin{align*}
-\frac{\partial}{\partial z} (w u) &\approx \frac{ w_{k+1/2} \big( u_{k+1} + u_k \big) - w_{k-1/2} \big( u_{k} + u_{k-1} \big)}{2 \Delta_z}\\
-&\approx u_k \frac{ w_{k+1/2} - w_{k-1/2} }{\Delta_z} + \frac{1}{2}\Big(w_{k+1/2}\frac{ u_{k+1} - u_k}{\Delta_z} + w_{k-1/2}\frac{u_k - u_{k-1}}{\Delta_z}\Big)
+&A_c \left[(\mathrm{Av} w)_{c,k+1/2}(\mathrm{Av} \Vec{u})_{c,k+1/2}-(\mathrm{Av} w)_{c,k-1/2}(\mathrm{Av} \Vec{u})_{c,k-1/2}\right]\\
+&= A_c \left[\Vec{u}_{c,k} \left(  (\mathrm{Av} w)_{c,k+1/2}-(\mathrm{Av} w)_{c,k-1/2}\right) + \frac{1}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]\\
+&= A_c \left[\Delta_z\Vec{u}_{c,k} \left(\mathrm{Av}\left( -\nabla\cdot \Vec{u}\right)_{v,k}\right)_{c,k} + \frac{1}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]
 \end{align*}
-In order to eliminate the vertical velocity using the volume
-conservation we need to subtract the following term from the momementum transport
+
+
+The discretization of the horizontal momentum flux through the
+vertical faces of the cell is assumed to use two reconstructions of
+the horizontal velocities onto the faces: the \textit{advecting} and
+\textit{transported} horizontal velocities.
 \begin{equation*}
-\mathrm{Av} \boldsymbol{w} \odot 
+\Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\Vec{u}_{\mathrm{tr},e}
+%= \Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\left(\Vec{u}_{\mathrm{tr},e} - \Vec{u}_{c,k}\right) + \Vec{u}_{c,k}\Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}
 \end{equation*}
+
+****** TODO Determine the influence of the mismatch of divergence definitions
+
+\begin{equation*}
+\Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\left(\Vec{u}_{\mathrm{tr},e} - \Vec{u}_{c,k}\right) + A_c\Delta_z\Vec{u}_{c,k}\Bigg(\frac{1}{A_c}\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e} - \left(\mathrm{Av}\left( \nabla\cdot \Vec{u}\right)_{v,k}\right)_{c,k}\Bigg) + \frac{A_c}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]
+\end{equation*}
+
+An analogous discussion is needed for the flux-form formulation of the
+buoyancy equation.
+
 ****** divergence on scalar control volumes
 For both horizontal directions their advective momentum flux may be
 computed on each cell. The divergence of the advective momentum flux
@@ -196,16 +228,16 @@ cells.
 = \Big(\mathrm{Av}\big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i})_c\big)_v \Big)_c
 \end{equation*}
 ****** divergence on cells with vector reconstructions onto edges
-At each edge of the cell the mass flux through that edge is
+At each edge of the cell the volume flux through that edge is
 computed. If multiplied by a velocity component the advective momentum
 flux of the respective component is obtained. The reconstruction of
 the velocity onto an edge may be chosen to depend on the direction of
-the mass flux through the edge by extrapolating from the upwind cell.
+the volume flux through the edge by extrapolating from the upwind cell.
 #+NAME: hma-flux-form-divergence-cells
 \begin{subequations}
 \begin{align*}
 F &= \ell_e \sum_{\hat{c}\in C(e)} \Vec{n}_{\Tilde{c},e}\cdot\Vec{u}_{\hat{c}} / 2\\
-Ru_i &= u_{i,\Tilde{c}} + \ell_e/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabla \boldsymbol{u_i}\big)_{\Tilde{c}}\\
+Ru_i &= u_{i,\Tilde{c}} + \ell_{\Hat{e}}/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabla \boldsymbol{u_i}\big)_{\Tilde{c}}\\
 \Big(\nabla \cdot \big( \boldsymbol{\Vec{u}} \boldsymbol{u_i} \big) \Big)_{c}
 &= \frac{1}{A_c}\sum_{e\in C(e)} \sum_{\Tilde{c}\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_{\Tilde{c},e}\frac{F +  \abs{F}}{2}~Ru_i
 \end{align*}
@@ -237,20 +269,26 @@ control volumes may be obtained my averaging the horizontal velocity.
 \end{equation*}
 ****** TODO Investigate properties if gradient of kinetic energy is computed by gradient on cells
 **** horizontal scalar advection
-The transport of scalar quantities (e.g. bouyancy) is discretized in
+The transport of scalar quantities (e.g. buoyancy) is discretized in
 the flux form. 
 
 ***** flux form
-The 
+The (advective) buoyancy flux through the vertical faces of a dual
+control volume is approximated by the convex combination of two
+different discretizations. If $\gamma=0$ the transported buoyancy is
+reconstructed from the upwind dual control volume. If $\gamma=1$ the
+transported buoyancy is reconstructed using the average of the upwind
+and downwind dual control volumes.
 #+NAME: hsa-flux-form
 \begin{subequations}
 \begin{align*}
-F &= \ell_e \sum_{c\in C(e)} \Vec{n}_{v,e} \cdot \Vec{u}_c / 2\\
-db^{\text{cen}} &= \frac{1}{\ell_e}\sum_{\hat{v}\in V(e)} \Vec{n}_{\Hat{v},e} \cdot \Vec{n}_{\Tilde{v},e} b_{\Hat{v}} \\
-db &= \frac{2}{3} db^{\text{cen}} + \frac{1}{3} \Vec{n}_{\Tilde{v},e} \cdot (\nabla b )_{c^{\text{up}}\big(\Tilde{v}, \Vec{n}_{\Tilde{v},e}\big)} \\
-Rb &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
-\Big(\nabla \cdot \big(\boldsymbol{\Vec{u}}\boldsymbol{b}\big) \Big)_{v}
-&= \frac{1}{A_v}\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \frac{F + (1-\gamma)\abs{F}}{2} Rb
+F_\mathrm{vol} &= \ell_{\Hat{e}} \sum_{c\in C(e)} \Vec{n}_{\Tilde{v},e} \cdot \Vec{u}_c / 2\\
+db_{\mathrm{cen}} &= \frac{1}{\ell_e}\sum_{\hat{v}\in V(e)} \Vec{n}_{\Hat{v},e} \cdot \Vec{n}_{\Tilde{v},e} b_{\Hat{v}} \\
+db &= \frac{2}{3} db_{\mathrm{cen}} + \frac{1}{3} \Vec{n}_{\Tilde{v},e} \cdot (\nabla b )_{c^{\text{up}}\big(\Tilde{v}, \Vec{n}_{\Tilde{v},e}\big)} \\
+b_{\mathrm{tr}} &= b_{\Tilde{v}} + \frac{\ell_e}{2} db\\
+A_v\Big(\nabla \cdot \big(\boldsymbol{\Vec{u}}\boldsymbol{b}\big) \Big)_{v}
+&=\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \frac{F_\mathrm{vol} + (1-\gamma)\abs{F_\mathrm{vol}}}{2} b_\mathrm{tr}\\
+&=\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \Bigg( \gamma \frac{F_\mathrm{vol}}{2} + (1-\gamma)\frac{F_\mathrm{vol} + \abs{F_\mathrm{vol}}}{2}\Bigg) b_\mathrm{tr}
 \end{align*}
 \end{subequations}
 *** system
@@ -276,6 +314,35 @@ splitting into external and internal mode leads to inconsistencies but are recon
 \end{subequations}
 replace last term in surface elevation equation
 ** triangular C grid
+In a triangular C grid formulation the scalar quantities are located
+at the circumcenters of the respective triangles. The finite volume
+interpretation of their values is the mean on the respective triangle
+(cell). The dual mesh is a Voronoi diagram where each vertex of the
+triangulation is the collocation point of a Voronoi cell (also called
+\textit{dual cell}). Only diagnostic quantities are evaluated at the
+collocation points of the dual mesh in the primitive model; in
+particular, the vorticity is computed on the Voronoi cells. The
+collocation points of the horizontal velocity components are staggered
+with respect to introduced collocation points and with respect to each
+other. They are located at the midpoints of the (primal) grid
+edges. The value of the horizontal velocity component on each such
+point is interpreted as the mean of the normal component of the
+horizontal velocity on the respective edge (with a given orientation).
+
+| Notation        | Interpretation on Tri-C                   |
+|-----------------+-------------------------------------------|
+| c               | cell                                      |
+| v               | dual control volume                       |
+| e               | face (edge) between control volumes       |
+| $\Vec{n}_{c,e}$ | normal to cell c at face e                |
+| $\Vec{n}_{v,e}$ | normal to dual control volume v at face e |
+| $\ell_e$        | area (length) of the face (edge) e        |
+| $E(c)$          | set of faces of cell c                    |
+| $E(v)$          | set of faces of dual control volume v     |
+| $C(e)$          | set of cells with face e                  |
+| $V(e)$          | set of dual control volumes with face e   |
+|-----------------+-------------------------------------------|
+
 *** operators
 **** divergence
 \begin{equation*}
@@ -438,8 +505,265 @@ respect to the center of the triangle.
 \end{equation*}
 
 * Discussion
-Some comments on \cite{Barham2018}, we may place their discussion in
-Discussions:
+Spatial discretizations used in atmospheric and ocean modeling are
+commonly discussed in the context of shallow water equations (see
+e.g.\cite{Randall1994,LeRoux2007,Yu2020,Lapolli2024}). In real-world
+applications, additional factors such as advection of scalars and
+momentum and vertical discretization come into play. The quadrilateral
+A, B and C grids are similar concerning reconstruction of the
+quantities to be advected, since staggering does not interfere with
+such reconstructions. However, staggering introduces horizontal
+averaging of vertical velocity in the vertical advection of
+momentum. There is less averaging on C grids than on B grids, but it
+is fully absent on collocated (A) grids. All grids need horizontal
+averaging of the horizontal advecting velocity for momentum, but A and
+B grids need it also for scalars. In the vertical direction, ocean
+circulation models traditionally use the so called Lorenz staggering
+(see discussion in \cite{BellWhite2017}) independent of the horizontal
+discretization. This vertical staggering is known to lead to spurious
+instability of computational kind (\cite{BellWhite2017},
+\cite{Menesguen2025}) if the vertical resolution is too fine compared
+to the horizontal one. The horizontal discretization of momentum
+advection may trigger the Hollingsworth instability for certain
+variants of the vector-invariant form (\cite{Hollingsworth1983,
+Bell2017, Ducousso2017}). The accuracy and stability of particular
+spatial discretizations are therefore defined by intricate interaction
+of many factors, and their analysis needs a framework that is less
+limiting than linearized shallow water equations.
+
+The ability of particular discretizations to approximate the
+theoretical growth rate of baroclinic and symmetric instability in the
+Eady configuration depends on all factors mentioned above. As shown by
+\cite{Barham2018}, the respective analysis presents a framework for
+learning how particular features of discretizations influence their
+performance. For instance, \cite{Barham2018} show that on
+quadrilateral meshes the C grid is more accurate than the B grid in
+the representation of symmetric instability, and is only slightly more
+accurate in the representation of the growth rate of baroclinic
+instability.  An unexpected finding of \cite{Barham2018} is a spurious
+instability along the baroclinic axis on quadrilateral C grids. While
+\cite{Barham2018} show that on sufficiently fine meshes this
+instability is easily suppressed by moderate biharmonic viscosity and
+diffusion if a fourth-order advection of buoyancy is used, much higher
+viscosity is needed on coarse meshes because the spurious instability
+penetrates into the range of wavenumbers of physical baroclinic
+instability.
+
+Several new ocean circulation models (FESOM, ICON-o and MPAS-Ocean)
+are formulated on unstructured (triangular or hexagonal) meshes and
+use different horizontal spatial discretizations. An obvious
+motivation for studying the discrete Eady problem for these
+discretizations is the question of their accuracy. Some aspects of the
+answer can be foreseen, as C grids on such meshes generally imply less
+averaging than B grids, same as on quadrilateral meshes. More
+important, however, is the question about the consequences of spurious
+numerical modes (see e.g. \cite{LeRoux2007,LeRoux2012,Danilov2013})
+maintained by staggered discretizations on triangular or hexagonal
+meshes. These modes were studied predominantly in the context of
+linearized shallow water equations, where they create spurious wave
+branches which are neutral and hence can be damped. A real question is
+what happens in unstable 3D flows, especially in the light of possible
+spurious baroclinic instability found in \cite{Barham2018}. Our study
+reveals many unexpected details which are briefly discussed
+below. Before doing this we make several remarks on the quadrilateral
+meshes, which we also explored for comparison.
+
+** Remarks on Quadrilateral Grids
+*** Alignment of Basic Flow with the Mesh
+First, the analysis of \cite{Barham2018} assumes that the basic flow
+is aligned with the mesh. The other limiting case is the flow directed
+along the mesh diagonal. We found that this case the accuracy is even
+slightly improved, so that the results of \cite{Barham2018} hold for
+arbitrary orientation of the flow and the mesh.
+**** TODO Create a plot to illustrate this
+*** Accuracy of Pressure Gradients and Vertical Velocity
+Second, the discrete linearized equations written down in
+\cite{Barham2018} for B and C grids show that on the symmetric axis
+the B-grid equations differ mainly by additional averaging of vertical
+velocity in the vertical momentum advection and horizontal velocity in
+the advection of mean buoyancy in the buoyancy equation. The pressure
+gradient averaging on B grid does not affect perturbations along the
+baroclinic or symmetric axes. This alone implies that the traditional
+thinking about the B and C grids in terms of the accuracy of pressure
+gradient is insufficient, and other factors are responsible for the
+less accurate behavior of the B grids. To put this result in a broader
+context, we analyzed the quadrilateral A grid. In this case the
+averaging of vertical velocity in momentum equation drops out, but
+pressure gradient is less accurate on the baroclinic and symmetric
+axes. The result (not shown here, but reproducible with the scripts in
+the Supplementary Material) is that the A grid is similar to the B
+grid as concerns the representation of the growth rates of baroclinic
+and symmetric instabilities. The averaging leading to the loss of
+accuracy (as compared to C grid) is different on A and B grids, but
+leads to similar consequences. This also means that the pressure
+gradient averaging which is the main drawback of A grids in the
+context of shallow water wave dynamics does not really make A grids
+worse than B grids. However, similar to the C grid, the A grid
+maintains spurious instability on the baroclinic axis. The spurious
+part is separated by a gap from the physical one at $a=12.5$ km or
+higher, but merges with the physical one for $a=25$ km. Respectively,
+biharmonic friction with $V_0=0.01$ m/s is needed on the coarse mesh
+to suppress the spurious branch, but already $V_0=0.003$ m/s is
+sufficient for $a=12.5$ km. The very similar behavior is found for the
+C grid, where $V_0=0.01$ m/s is needed for $a=25$ km and $V_0=0.006$
+m/s is needed for $a=12.5$ km in the case of the fourth order method
+for buoyancy advection. The fourth order advection of buoyancy is
+helpful on the A grid, but its presence is less critical than for C
+grids.
+**** TODO Create plot for illustration
+*** Instability on Grid Scales
+Third, although the C grid is more accurate in representing symmetric
+instability, it is not accurate enough at high wavenumbers. Since the
+simulated instability range continues to the cutoff wavenumber,
+additional dissipation will be needed to suppress the instability on
+grid scales, as all discrete operators are inaccurate in this case.
+** Effects of Spurious Modes on Triangular Grids
+Formulated briefly, the main result of our analysis in this work is
+that all staggered discretizations (i.e. B and C grids) maintain
+spurious instabilities along baroclinic and symmetric axes. All
+need dissipation to suppress these modes. The spurious part is
+generally a combination of several branches, and we hypothesize that
+they are partly related to the spurious modes maintained by these
+discretizations. The reader shall be reminded that these modes are created by
+the disagreement between the numbers of discrete velocity and pressure
+degrees of freedom, which is due to the geometry of triangular or
+hexagonal meshes.
+*** Alignment of the Flow with the Mesh
+In contrast to the quadrilateral meshes, the
+symmetric axis is also affected, and there is strong sensitivity of
+the spurious part to the direction of the flow with respect to the
+mesh.
+*** Violation of Galilean Invariance
+Additionally, spurious instabilities violate Galilean
+invariance, being sensitive to the addition of a uniform flow to the
+flow centered around the mid-depth. This is an indication that the
+spurious instabilities involve spurious modes. A possibility for this
+violation is created by the representation of discrete velocities. On
+triangular and hexagonal C grids, the three normal velocity
+projections over-define a vector field (see,
+e.g. \cite{Danilov2010,Gassmann2011}), and it can be shown that in
+this case the Fourier symbol of the linearized momentum advection has
+two physical and one spurious eigenvalue. For triangular B grids,
+there are two spurious eigenvalues due to the geometrical difference
+in the orientation of any two adjacent triangles. These spurious
+eigenvalues do not describe physical advection. Uncovering how the
+spurious modes of these staggered discretizations induce spurious
+branches of baroclinic and symmetric instabilities might be worth of
+attention, but is beyond the scope of the present work.
+*** Damping of Spurious Instabilities on the Baroclinic Axis
+In each case a relatively moderate dissipation is generally sufficient
+to suppress the instability on the baroclinic axis. The dissipation
+depends on the resolution, on the orientation of the flow to the mesh
+and on the accuracy and implementation of the advective operators. The
+biharmonic diffusion and viscosity with coefficients scaling as
+$V_0l^3$ is generally sufficient to suppress spurious modes for
+relatively moderate values of $V_0$ ($V_0<0.01$ m/s, except for very
+coarse meshes), but even these values may already affect the accuracy
+of maximum instability increment or the range of wavenumbers where
+physical instability is observed.
+**** TODO Create a plot for illustration
+*** Damping of Spurious Instabilities on the Symmetric Axis
+On the symmetric axis, the spurious part is often attached to the
+physical part, and it is difficult to see where the physical branch
+ends and the spurious one starts. The associated growth rates depend
+on the details of advection and flow direction. The analysis of
+eigenvectors might be helpful to disentangle spurious and physical
+parts, but it is delayed to future studies. The actual dissipation
+needed to suppress spurious symmetric instabilities remains depends on
+this analysis, but in any case, the situation is less promising than
+the one on the quadrilateral meshes.
+**** TODO Create a plot for illustration
+*** Triangular A Grids
+Unexpectedly, among the discretizations explored here the collocated
+triangular A grid shows the least problematic performance compared to
+its staggered counterparts. It suffers from a spurious instability
+along the baroclinic axis, but this instability is disconnected from
+the physical branch on sufficiently fine meshes ($a=12.5$ km or finer)
+and can be easily suppressed, with $V_0=0.002$ m/s on the coarse mesh
+($a=25$ km) and already $V_0=0.0007$ m/s for $a=12.5$ m/s. In
+contrast, the spurious instabilities of staggered discretizations
+often penetrate in the range where physical instabilities are present.
+**** TODO Create a plot for illustration
+** Comparisons of Discretizations on Triangular and Quadrilateral Grids
+Triangular and quadrilateral A grids are very similar on the
+baroclinic and symmetric axes, and the similarity continues even for the
+magnitude of viscosity and diffusivity needed to remove spurious
+instability branches. The quadrilateral B grid is much more robust
+than its triangular counterpart as it does not support spurious
+instability branches. Despite the absence of pressure gradient
+averaging in the triangular case, this discretization encounters more
+issues related to its spurious modes. Similarly, triangular and
+hexagonal C grids are less robust than the quadrilateral C grid, but
+here the main issue is the behavior on the symmetric axis.
+** TODO Higher-Order Gradient in Surface Elevation
+** Further Extensions of the Discretizations
+As we have seen, the redundant representation of velocities in
+staggered discretizations on triangular and hexagonal meshes
+contributes to the appearance of spurious instability branches in the
+discrete Eady problem. One may hope that the use of WENO-type methods
+for momentum and tracer advection will suppress possible oscillations
+in solutions and thus will efficiently damp geometrical modes
+supported by staggered discretizations, with direct effect on spurious
+instability branches.
+
+The triangular A and B grids can work on arbitrary triangular meshes,
+in contrast to the C grids which need the so called orthogonal
+meshes. The latter contain centers of circumscribed circles within
+respective triangles. In reality, the A and B grids are even more
+general and can be extended to arbitrary polygonal meshes, or mixed
+meshes containing polygons of different type. Such an extension can to
+some degree be done for C grids, but is much less general because of
+the orthogonality constraint. The extension to mixed unstructured
+meshes can be a promising further step for triangular B grids. In
+fact, mixed unstructured meshes formed predominantly by quadrilateral
+elements, are already used in FESOM-C, the coastal branch of FESOM
+(\cite{DanilovAndrosov2015,Androsov2019}), where they generally
+warrant a more stable performance than purely triangular meshes
+without any loss in flexibility.
+** Eddy-Permitting Meshes
+The reasoning about the relationship between the Rossby radius $L_d$
+and the mesh resolution depends on the inclusion of $1/\pi$ in the
+definition. \cite{Barham2018} use $L_d=NH/f_0=40$ km which does not
+include this factor. We therefore avoid using $L_d$, and take the
+scale of the maximum of baroclinic instability in the
+consideration. It corresponds to $k^*\approx4\times10^{-5}$ 1/m, which
+gives $k^*a$=1 for $a$=25 km. In this case, $\lambda^*/a=2\pi$, while
+$\ lambda/a=2$ corresponds to the spectral cutoff. Here $\lambda$
+denotes the wavelength. This is a relatively coarse mesh, as the scale
+of maximum instability is only about 3 cutoff wavelengths, which is
+formally eddy permitting. On the quadrilateral B grid, the growth rate
+multiplied with $N/M^2$ at this resolution is about 0.26 and it is
+0.28 on the C grid where dissipation with $V_0=0.01$ m/s is needed to
+suppress the spurious branch. They should be compared to the
+theoretical value of 0.31. For $a=50$ km the growth rate is 0.18 on
+the B grid and 0.20 on the C grid with the dissipation increased to
+$V_0=0.015$ m/s for the C grid. The C grid stays more accurate despite
+the dissipation, but the difference between the B and C grids is not
+large. If the same dissipation is applied to the B grid, the result
+decreases to 0.24 and 0.15 respectively, but this dissipation is not
+needed in the present framework. \cite{Barham2018} hypothesize that
+the reduced growth rate might be the reason why eddy permitting meshes
+(and B grids in particular) simulate insufficient eddy energy
+levels. The growth rate is indeed reduced for $a=25$ km compared to
+the finer meshes, but it is still large so that it is difficult to
+accept that this reduction plays a fundamental role.
+
+A common motivation for the energy backscatter parameterization is the
+need to handle over-dissipation in eddy-permitting models. An
+illustration is provided by the dissipation spectra in
+\cite{Soufflet2016} showing that the maximum of kinetic energy
+dissipation due to biharmonic friction occurs approximately where the
+energy peaks. We, however, see that the biharmonic viscosity with
+typical $V_0$ can only reduce the growth rate of instabilities by
+about 10\% for $a=25$ km, and much less if the resolution is
+increased. So the over-dissipation is related not so much to the
+direct damping of growing instability as to the excessive damping of
+adjacent higher wavenumbers and steepening the energy spectra to the
+extent that they roll off faster than $k^{-4}$. This moves the peak of
+dissipation diagnosed at quasi-equilibrium to the largest
+scales. Ultimately the over-dissipation is due to the effect of
+scaling of viscosity $\nu=V_0l^3$, which makes it larger at given
+wavenumber on coarser meshes.
 ** Alignment of Basic Flow and Mesh
 They assume that the basic flow is aligned with the mesh. Their
 results will be somewhat different for other directions. To estimate
@@ -458,6 +782,7 @@ quadrilateral meshes
 **** TODO Relate findings to the influence of averaging the vertical velocity to cells
 **** TODO Formulate hypothesis for spurious instabilities at pi/6 in comparison to fully aligned
 *** TODO Check if plots for different schemes of the horizontal momentum advection agree
+
 ** Influence of Averaging of the Vertical Velocity
 Symmetric instability: If we look at (25)-(37) along the symmetric
 axis ($a_x=1$, $\delta_x=0$) and compare with (38)-(40), we conclude
@@ -531,3 +856,215 @@ i.e. $\Bar{U}(z=H) = M^2 H/2$ and flow direction not aligned with the x-axis.
 The flow speeds should be of order $M^2 H/2$ and the flow direction
 not aligned with the x-axis.
 *** NEXT Investigate loss of accuracy in viscosity/diffusion operators
+
+* Conclusion
+As a follow-up to \cite{Barham2018} we analyzed the discrete Eady
+instability problem on triangular A and B grids, for the mimetic
+discretization of ICON-o (abbreviated as triangular C grid) and on the
+hexagonal C grid. We show that the staggered discretizations
+(triangular B and C grids and hexagonal C grid) maintain spurious
+instability branches on both baroclinic and symmetric axes. These
+branches are at least partly induced by numerical modes of these
+discretizations. This is indicated by the loss of Galilean invariance
+for these branches. The collocated triangular A grid has a spurious
+branch on the baroclinic axis, but no such branches on the symmetric
+axis. The spurious instability branches are sensitive to the alignment
+between the mean flow and the mesh and to the discretization of the
+advection of momentum and scalars.
+
+We demonstrate that these grids have very similar accuracy in
+representing the physical branch of baroclinic instability, with C
+grids being slightly more accurate than the A and B grids at the
+coarsest mesh considered here, similar to quadrilateral meshes. On the
+symmetric axis, all staggered grids are contaminated by spurious
+branches which penetrate into the region of physical
+instabilities. The behavior is similar to that induced by the
+Hollingsworth instability, but is, at least partly, related to the
+presence of geometrical modes maintained by discretizations.
+
+Moderate biharmonic dissipation of momentum and buoyancy is found to
+be sufficient to suppress the spurious branches on the baroclinic axis
+if meshes are fine enough, but the dissipation coefficient with $V_0$
+as high as 0.01 m/s is needed when the resolution is
+coarsened. However, similar levels of dissipation are also needed on
+the quadrilateral A and C grids in this case. The level of dissipation
+needed to suppress spurious branches on the symmetric axis requires
+additional studies, as spurious branches intersect with physical ones
+on triangular and hexagonal staggered grids. We only show that
+moderate dissipation is sufficient to suppress spurious instability at
+spectral end.
+
+We show that triangular and hexagonal C grids do not reach the
+performance of quadrilateral C grid. Similarly, triangular B grid does
+not reach the performance of quadrilateral B grid. Unexpectedly
+enough, the triangular A grid is least problematic and is not any
+worse than other grids considered here in simulating instabilities in
+the framework of Eady problem.
+
+The main recommendation of this study is that a careful choice of
+dissipation is needed to suppress spurious behavior for the staggered
+discretizations considered here, especially if instabilities along the
+symmetric axis are of interest.
+
+
+\begin{equation}
+\frac{\mathrm{d} \mathtt{\hat{\eta}}\_{2}\left( t \right)}{\mathrm{d}t} =  - 1000 \left( \frac{4 \mathtt{u̲\hat{⃗}}\_{2,1}\left( t \right) \left( 1 + \_expm1im\left(  - \frac{1}{3} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{2,2}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{2,3}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} + \frac{1}{3} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right)}{ - 1.7321 \mathtt{le}} + \frac{4 \mathtt{u̲\hat{⃗}}\_{1,1}\left( t \right) \left( 1 + \_expm1im\left(  - \frac{1}{3} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{1,2}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{1,3}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} + \frac{1}{3} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right)}{ - 1.7321 \mathtt{le}} + \frac{4 \mathtt{u̲\hat{⃗}}\_{4,1}\left( t \right) \left( 1 + \_expm1im\left(  - \frac{1}{3} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{4,2}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{4,3}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} + \frac{1}{3} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right)}{ - 1.7321 \mathtt{le}} + \frac{4 \mathtt{u̲\hat{⃗}}\_{3,1}\left( t \right) \left( 1 + \_expm1im\left(  - \frac{1}{3} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{3,2}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} - \frac{1}{6} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right) + 4 \mathtt{u̲\hat{⃗}}\_{3,3}\left( t \right) \left( 1 + \_expm1im\left( \frac{1}{6} k \mathtt{le} + \frac{1}{3} \left(  - \frac{1}{2} k \mathtt{le} + \frac{1}{2} l \mathtt{le} \mathtt{sqrt3} \right) \right) \right)}{ - 1.7321 \mathtt{le}} \right)
+\end{equation}
+
+\begin{equation}
+\begin{split}
+&\frac{72000 \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{sqrt3} \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 72000 \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{sqrt3} \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 72000 \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{sqrt3} \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 72000 \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{sqrt3} \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 18 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right)^{2} \mathtt{f_0} - 36 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} - 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 36 \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{sqrt3} z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 18 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right)^{2} \mathtt{f_0} + 36 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 36 \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{sqrt3} z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 24000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 18 \epsilon^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right)^{2} \mathtt{f_0} + 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 36 \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{sqrt3} z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 18 \epsilon^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right)^{2} \mathtt{f_0} - 12000 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 36 \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{sqrt3} z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} - 6 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} + 6 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 6 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} - 12 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon - 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} + 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 3 \epsilon^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right)^{2} \mathtt{f_0} \mathtt{sqrt3} - 6 \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) z \sqrt{\frac{\mathtt{f_0}^{2} \mathtt{N^2}}{\mathtt{Ri}}} \epsilon + 2 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right)^{2} \mathtt{f_0} + 4 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} - 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right)^{2} \mathtt{f_0} - 4 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} + 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right)^{2} \mathtt{f_0} - 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{f_0} + 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right)^{2} \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right)^{2} \mathtt{f_0} + 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{f_0} - 8 \epsilon^{2} \mathtt{sqrt3}^{2} \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right)^{2} \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right)^{2} \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} - 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right)^{2} \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} - 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{-1,1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right)^{2} \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{f_0} + 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right)^{2} \mathtt{f_0} + 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right)^{2} \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,-1,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right)^{2} \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{f_0} + 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right)^{2} \mathtt{f_0} + 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{f_0} - 6 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{f_0} + 4 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{2,-1,1}\left( t, z \right) \mathtt{f_0} - 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,0,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right)^{2} \mathtt{f_0} - 3 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{0,1,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right) \mathtt{f_0} - \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right)^{2} \mathtt{f_0} - 4 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,2}\left( t, z \right) \mathtt{f_0} + 6 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,1}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,2}\left( t, z \right)^{2} \mathtt{f_0} + 6 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,2}\left( t, z \right) \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{f_0} - 4 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right)^{2} \mathtt{f_0} - 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,-1,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{2,-1,1}\left( t, z \right) \mathtt{f_0} + \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,0,1}\left( t, z \right)^{2} \mathtt{f_0} + 4 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right)^{2} \mathtt{f_0} - 6 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{1,0,3}\left( t, z \right) \mathtt{d\Vec{u}}\_{2,-1,1}\left( t, z \right) \mathtt{f_0} + 2 \epsilon^{2} \mathtt{sqrt3}^{3} \mathtt{d\Vec{u}}\_{2,-1,1}\left( t, z \right)^{2} \mathtt{f_0}}{36 \mathtt{sqrt3}^{2} \mathtt{f_0} \mathtt{le}}
+\end{split}
+\end{equation}
+
+
+* A grid
+\newcommand{\Aop}{\mathsf{A}}
+
+\section{Triangular A-grid}
+
+One can formulate a triangular A grid in several ways. We will deal
+with the vertex placement of discrete fields. For this placement, one
+can either use control volumes obtained by connecting circumcenters of
+triangles around a vertex, or connecting centroids with mid-edges
+(median-dual control volumes). These two variants coincide on a
+regular mesh formed of equilateral triangles, and will not be
+distinguished further.
+
+\subsection{Operators} The discrete gradient acting on the buoyancy is
+defined as $$ A_v(\nabla b)_v=\sum_{e\in E(v)} b_e d_e\mathbf{n}_e, $$
+where $b_e=(1/2)\sum_{v \in V(e)}b_v$ is computed by averaging two
+vertex values belonging to edge $e$, $d_e$ and $\mathbf{n}_e$ are the
+length and outer unit normal to the segment of control volume
+boundary, and $E(v)$ the set of edges coming to vertex $v$. For the
+Fourier mode result is
+\begin{equation}
+(\nabla b)_v=\Gop\hat{b}e^{i\mathbf{k}\cdot\mathbf{x}_v},
+\label{eq:A1}
+\end{equation}
+where
+\begin{equation}
+\Gop=(g_x,g_y)^T=[\frac{2}{3a}[(1,0)\sin(ka)+(\frac{1}{2},\frac{\sqrt{3}}{2})\sin(\frac{ka}{2}+lh)+(-\frac{1}{2},\frac{\sqrt{3}}{2})\sin(-\frac{ka}{2}+lh)]^T.
+\label{eq:A2}
+\end{equation}
+$\Gop$ is the Fourier symbol of the gradient operator.
+
+The Fourier symbol for the divergence on the A grid is $$
+(\nabla\cdot\mathbf{u})_v=(-g_x^*,
+-g_y^*)\begin{pmatrix}\hat{u}\\ \hat{v}
+\end{pmatrix}\exp{i\mathbf{k}\cdot\mathbf{x}_v}, $$ where the star
+denotes complex conjugation. Since $g_x$ and $g_y$ are purely
+imaginary, the Fourier symbol of divergence can be also written as $$
+\Dop=(g_x, g_y).  $$
+
+The Fourier symbol of the linearized operator of horizontal advection
+(transport) is obviously $$ \Top=g_xU+g_yV.  $$ The same operator acts
+on the both components of velocity and buoyancy on the A grid. This is
+not the case for staggered discretizations on triangular meshes. Note
+that $\Aop$ has the dimension of $N_z$. Three more terms originate
+from advection. The first one is the vertical advection of momentum,
+$w\partial_z\mathbf{U}$. On the A grid the location of vertical
+velocity $w$ in the horizontal plane is at vertices, so no horizontal
+averaging is involved, and there is only vertical averaging of $w$ to
+midlayer positions, denoted as $\Aop_z$ which is the same as in
+\cite{Barham2019}. This advection leads to
+$-(M^2/f_0)(\cos{\theta},\sin{\theta})\Aop_z\hat{w}$. The second term
+is the vertical advection of mean buoyancy, which leads to
+$N^2\Aop_z\hat{w}$. The remaining term is the horizontal advection of
+mean buoyancy. Here, some averaging is present on the A grid. Writing
+the discrete advection of mean buoyancy as $$
+A_v(\nabla\cdot(B\mathbf{u}))_v=\sum_{e\in E(v)} (B_e-B_v)
+d_e\mathbf{u}_e\cdot\mathbf{n}_e, $$ where
+$\mathbf{u}_e=(1/2)\sum_{v\in V(e)}\mathbf{u}_v$ and
+$B_e=(1/2)\sum_{v\in V(e) B_v$. The result for the Fourier mode is
+$((\Aop_{xx}B_x+\Aop_{xy}B_y)\hat{u},
+(\Aop_{xy}B_x+\Aop_{yy}B_y)\hat{v})^T$. Here, $(B_x, B_y)=\nabla
+B=M^2(-\sin{\theta},\cos{\theta})$, and the averaging operators are $$
+\Aop_{xx}=(1/3)((1+\cos(ka))+(1/4)(1+\cos(ka/2+lh))+(1/4)(1+\cos(-ka/2+lh))),
+$$ \Aop_{xy}=(sqrt{3}/12)(\cos(ka/2+lh)-\cos(-ka/2+lh)), $$ and $$
+\Aop_{yy}=(1/4)(2+\cos(ka/2+lh)+\cos(-ka/2+lh)).  $$ Because of
+triangular mesh, both components of mean buoyancy gradient contribute
+to advection by $\hat{u}$ and also to the advection by $\hat{v}$,
+although the related cross-contributions ($\Aop_{xy}$) disappear in
+the limit of small wavenumbers.
+
+We combine all unknowns into a single vector
+$\hat{\mathbf{r}}=(\hat{u},\hat{v},\hat{b},\hat{\eta})^T$ with
+dimension of $3N_z+1$ and introduce several auxiliary matrices:
+$\Aop={\rm diag(\Top)}$, the column of ones
+$\mathbf{1}=(1,1,\ldots,1)^T$ of dimension $N_z$, and the diagonal
+matrix $\Dop_1={\rm diag}(\mathbf{1}}$. Using these matrices, the
+system matrix of the linearized Eady problem is written as
+\begin{equation}     
+\Sop=-\begin{pmatrix} \Aop +(M^2/f_0)g_x\cos{\theta}\Wop & -f_0\Dop_1+(M^2/f_0)g_y\cos{\theta}\Wop & gx\Pop & gg_x\mathbf{1}\\
+    f_0\Dop_1 +(M^2/f_0)g_x\sin{\theta}\Wop& \Aop +(M^2/f_0)g_y\sin{\theta}\Wop$ gy\Pop & gg_y\mathbf{1}\\  
+    -N^2\Wop g_x +(\Aop_{xx}B_x+\Aop_{xy}B_y)\Dop_1 & -N^2\Wop g_y  +(\Aop_{xy}B_x+\Aop_{yy}B_y)\Dop_1  & \Aop & 0\mathbf{1}\\  
+    g_x\Delta z\mathbf{1}^T & g_y\Delta z\mathbf{1}^T &0\mathbf{1}^T & \Aop(1,1) \end{pmatrix}.
+    \label{eq:aS}
+\end{equation}
+The matrices $\Wop$ and $\Pop$ are introduced in
+\cite{Barham2018}. The first of them incorporates $A_z$ and returns
+the vertical velocity at mid-layer locations if applied to the vector
+of minus horizontal divergence. The second one returns the pressure at
+mid-layer locations when acting on buoyancy.
+
+The A grid commonly requires dissipation. The Fourier symbol of scalar
+Laplacian is $$
+\Lop=\Dop\Gop=\frac{4}{3a^2}(\cos(ka)+cos(ka/2+lh)+cos(-ka/2+lh)-3),
+$$ and the vector Laplacian has the same Fourier symbol for the
+components of velocity. Biharmonic viscosity and diffusion is
+introduced by adding $\kappa \Lop^2$ to $\Top$ before the diagonal
+matrix $\Top$ is computed. Here, $\kappa$ is the coefficient of
+biharmonic dissipation. The advection operator as written is of the
+second order. It can be easily updated to the fourth order by the
+Laplacian correction $$ \Top \to \Top(1-\Lop a^2/6).  $$ This can be
+seen doing Taylor's expansion of $g_x$ and $g_y$. The practical
+implementation of the fourth-order method can be done in several ways
+which are beyond the scope of present work.
+
+Figure \ref{fig:Abc} shows the growth rate of perturbations on the
+baroclinic axis for $a=12.5$ km. The blue line and the red line
+correspond to the case of no dissipation and second order advection,
+for the flow and wavevector directed at $\pi/6$ to the $x$ axis and
+along it respectively. These two directions are analogous to the along
+mesh and diagonal direction of a quadrilateral mesh. They show the
+effect of mesh orientation, which is negligible for the representation
+of baroclinic instability growth rate. However, similar to the case of
+quadrilateral C grid, a spurious instability occurs at large numbers,
+and it is emphasized in the $\pi/6$ direction. It is reduced if
+advection of buoyancy is fourth order (orange curve). If the advection
+of momentum and buoyancy is fourth order, the spurious peak (violet
+curve) becomes stronger, but moves to larger wavenumbers. Finally,
+very gentle biharmonic dissipation with $\kappa=V_0a^3$, where
+$V_0=0.0007$ m/s, damps the instability. Note that the fourth-order
+momentum advection slightly reduces the range of unstable wavenumbers
+(compare the green and orange curves), making it closer to theoretical
+result. Compared to the quadrilateral C grid (see \cite{Barham2018},
+the spurious instability is less pronounced on the triangular A grid
+and is eliminated by smaller dissipation. Indeed, the spurious mode of
+the quadrilateral C grid on the 12.5 km mesh needs $V_0\approx0.006$
+m/s, and higher dissipation is required on coarser meshes. The reason
+is the fourth-order buoyancy advection on such meshes leads to less
+improvements than for 6.25 km mesh.
+
+The real cause of spurious instability is not clear to us.
+
+Figure \ref{fig:Asy} illustrates the instability along the symmetric
+axis for the flow directed along the triangle side (red) and at
+$\pi/6$ (orange). The effect of mesh orientation is visible, but not
+large, and it does not affect the growth rate curve where it is close
+to the theory. The same biharmonic dissipation as on the baroclinic
+axis (violet) also leads to very small changes. Overall, the behavior
+on the symmetric axis resembles that on the quadrilateral B grid, and
+the slightly broader instability range on the triangular A grid is
+related to its higher geometric resolution, which is defined by
+triangle height, not side (\see{Danilov2022). Recalling the analysis
+of \cite{Barham2018} a further comment is worthwhile here. Commonly it
+is thought that it is averaging of pressure gradient that makes the
+quadrilateral B grid less accurate than the C grid. However, this
+averaging does not matter on the symmetric axis. Thus it is the
+averaging of vertical velocity in momentum advection that makes the
+representation of symmetric instability less accurate. The A grid, in
+contrast to the B grid, removes the vertical velocity averaging in
+momentum advection, yet introduces several others instead (e.g., in
+pressure gradients) with a very similar net effect.

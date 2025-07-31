@@ -1,0 +1,489 @@
+At present there are several global ocean general circulation models
+formulated on unstructured meshes. They include MPAS-Ocean
+(\cite{Ringler2013}), ICON-o (\cite{Korn2013}) and FESOM
+(\cite{Wang2014}, \cite{Danilov2017}). They use different types of
+spatial discretization in horizontal plane.  The discretizations of
+ICON-o and MPAS-Ocean are based on discrete normal velocities at the
+edges of primary triangular (ICON-o) or dual hexagonal mesh
+(MPAS-Ocean), placing scalars at cells of primary or dual mesh
+respectively. FESOM works with full velocity vectors placed on cells
+of triangular mesh, and scalars on median dual control volumes related
+to mesh vertices. In analogy with the 'Arakawa' quadrilateral grids
+(\cite{ArakawaLamb1977}) the discretizations discussed here will be
+referred to as the hexagonal C grid (MPAS-Ocean), triangular C grid
+(ICON-o, even though this model uses a mimetic discretization
+different from the usual C grid) and triangular B-grid (FESOM). The
+list of unstructured-mesh ocean models and discretizations could have
+been extended to include many coastal models, but we do not consider
+them here.
+
+The question about advantages and disadvantages of regular
+quadrilateral B and C grids has been discussed repeatedly and is
+already a subject of textbooks (e.g. \cite{BeckmannHeidvogel}). As is
+well known, the B grids win in the representation of the Coriolis
+force, where the C grids introduce averaging, but lose in the
+representation of pressure gradients, where they introduce additional
+averaging compared to C grids. The recent analysis by
+\cite{Barhan2018} adds to the understanding of the properties of the B
+and C grids by studying how they reproduce known instabilities in the
+Eady problem configuration. The resolution of global ocean circulation
+models increases and numerous setups are used to simulate eddy-rich
+regimes, and the analysis helps to assess efficient resolution of
+these two grids (discretizations). \cite{Barhan2018} show that the C
+grid discretization gives substantially more accurate growth rates of
+symmetric instability, but generates a spurious baroclinic (for
+wavevectors aligned with unperturbed flow) instability in the range of
+wavenumbers extending up to the cutoff wavenumber. Suppression of the
+latter requires a special combination of the fourth order scalar
+advection and biharmonic horizontal viscosity. Thus, while both the
+grids are well suited to model the standard baroclinic instability,
+the C grid can be a better option at very high resolutions when the
+symmetric instability can become a part of dynamics.
+
+The question arises as to whether these distinctions in reproducing
+instabilities are preserved for triangular (hexagonal) C and B
+grids. On one hand, the C grids still offer better locality of
+pressure gradient computations than B grids. There are, however, many
+differences compared to the case of quadrilateral grids. For example,
+there is no pressure gradient averaging on triangular B grids, special
+reconstructions are required for the Coriolis term on the hexagonal C
+grid (\cite{Thuburn2009},\cite{Ringler2010}) and a special approach is
+needed to express the horizontal divergence which is equivalent to
+averaging of primary normal velocities (\cite{Korn2017}) on the
+triangular C grid. There is an additional important difference,
+however. All staggered unstructured grid discretizations maintain
+spurious modes which emerge due to a disbalance between vector and
+scalar degrees of freedom (DoF). There are either too many scalar DoF
+(on the triangular C grid) or too many velocity DoF (on the hexagonal
+C grid and triangular B grid). Can these spurious modes modify how the
+instabilities are simulated or lead to spurious instabilities on their
+own is a question which remains to be answered.
+
+The presented work is inspired by the analysis carried out by
+\cite{Barham2018} and aims to extend this analysis to triangular mesh
+discretization of ICON-o and FESOM. We study how well triangular-mesh
+discretization can represent linear symmetric and baroclinic
+instabilities in the Eady problem configuration. Same as in
+\cite{Barham2018}, we use hydrostatic and the Boussinesq
+approximation, and consider the buoyancy as a single scalar field. We
+also consider the effect of several momentum advection schemes,
+including the vector-invariant scheme for the B grid, which is shown
+to trigger the Hollingsworth instability. ....
+
+Due to the presence of spurious modes the analysis is more cumbersome,
+and we present necessary preliminary information and detailed
+expressions for elementary discrete operators in section ....
+
+      
+
+
+Some comments on \cite{Barham2018}, we may place their discussion in
+Discussions:
+
+1. They assume that the basic flow is aligned with the mesh. Their
+results will be somewhat different for other directions. To estimate
+the changes, one should, in principle, consider the case when the flow
+is along the mesh diagonal. For triangular meshes, one needs to
+compare the direction of basic flow along the triangle side and at
+$\pi/6$ to it or perpendicular to it (which is the same because of
+mesh symmetry). The directions along the baroclinic and symmetric axes
+are not numerically equivalent on triangular meshes, in contrast to
+quadrilateral meshes
+
+2. Symmetric instability: If we look at (25)-(37) along the symmetric
+axis ($a_x=1$, $\delta_x=0$) and compare with (38)-(40), we conclude
+that the only difference is in the third term on the LHS of (35) and
+(38). This term contains additional averaging on B grid, and the
+effect is as if $M^2$ is reduced compared to C grid. This additional
+averaging comes from $w$ averaging. On B grid, we average four $w$
+values to the velocity point, and on C grid, only two. Apart from
+that, there is some extra averaging in the expression for the surface
+pressure ($\varphi$) (in denominator on B and numerator on C). It
+would be interest to see which of them are important for the symmetric
+instability. It would be strange if $\varphi$ is involved, because of
+its barotropic character.
+
+If the problem is due to (35) and (38), it will remain on triangular
+meshes. We average $w$ from two cells to get it at velocity points of
+C grid. And we average it from three vertices to triangle center on B
+grid. While there is more averaging on B compared to C, it is less
+than on a quadrilateral mesh. This reduced averaging can of course be
+masked by the fact that on C grid the vertical velocity is computed on
+triangles, which makes it more localized on C grid. It would be good
+to discuss this in the paper.
+
+The question on the accuracy of B vs C with respect to the symmetric
+instability, a point \cite{Barham2018} did not touch. While C grid is
+more accurate, most of accuracy gain (compared to B grid) is at grid
+scales. The fact that C grid produces instability at 25 km and 12.5 km
+does not mean a lot, because the instability range is too close to the
+cutoff wavenumber, and all this will be killed by dissipation. Even
+for the mesh of 3.125 km the scales on which one can rely start
+between $k_y=2\pi/(8h)$ and $k_y=2\pi/(4h)$, where the B grid is
+already not that bad. In summary, unless we use a very high-order
+advection so that the dissipation is really at grid scales, there is
+no essential difference.
+
+
+3. The Hollingsworth instability: The last term on the LHS of (41)
+signals about potential problem: Indeed, we do not recover pure
+advection of $\mathbf{v}'$. This term is small, but it will be
+comparable to everything else at grid scales. The appearance of the
+Hollingsworth instability (which is computational symmetric
+instability) should be related to this term.  It could be perhaps of
+interest to see whether we generate terms of similar type with vector
+invariant momentum advection. I will try to look what is possible.
+
+4. Spurious baroclinic instability: If I look at 35-37 and 38-40 along
+the baroclinic axis, I should assume $a_y=1$ and $\delta_y=0$. In this
+case the difference between B and C is in the additional averaging in
+the last term on the LHS in 37 compared to 40. If this instability
+were intrinsic for discrete formulations, we could have guessed that B
+grid does not have it because of averaging. But what is the reason? I
+does not look as related to computational baroclinic instability
+caused by vertical averaging, and the fact that it is sensitive to the
+advection in the buoyancy equation is not really revealing.
+
+
+\section{Discussions} 
+
+Spatial discretizations used in atmospheric and ocean modeling are
+commonly discussed in the context of shallow water equations (see
+e.g.\cite{Randall1994,LeRoux2007,Yu2020,Lapolli2024}). In real-world
+applications, additional factors such as advection of scalars and
+momentum and vertical discretization come into play. The quadrilateral
+A, B and C grids are similar concerning reconstruction of the
+quantities to be advected, since staggering does not interfere with
+such reconstructions. However, staggering introduces horizontal
+averaging of vertical velocity in the vertical advection of
+momentum. There is less averaging on C grids than on B grids, but it
+is fully absent on collocated (A) grids. All grids need horizontal
+averaging of the horizontal advecting velocity for momentum, but A and
+B grids need it also for scalars. In the vertical direction, ocean
+circulation models traditionally use the so called Lorenz staggering
+(see discussion in \cite{BellWhite2017}) independent of the horizontal
+discretization. This vertical staggering is known to lead to spurious
+instability of computational kind (\cite{BellWhite2017},
+\cite{Menesguen2025}) if the vertical resolution is too fine compared
+to the horizontal one. The horizontal discretization of momentum
+advection may trigger the Hollingsworth instability for certain
+variants of the vector-invariant form (\cite{Hollingsworth1983,
+Bell2017, Ducousso2017}). The accuracy and stability of particular
+spatial discretizations are therefore defined by intricate interaction
+of many factors, and their analysis needs a framework that is less
+limiting than linearized shallow water equations.
+
+The ability of particular discretizations to approximate the
+theoretical growth rate of baroclinic and symmetric instability in the
+Eady configuration depends on all factors mentioned above. As shown by
+\cite{Barham2018}, the respective analysis presents a framework for
+learning how particular features of discretizations influence their
+performance. For instance, \cite{Barham2018} show that on
+quadrilateral meshes the C grid is more accurate than the B grid in
+the representation of symmetric instability, and is only slightly more
+accurate in the representation of the growth rate of baroclinic
+instability.  An unexpected finding of \cite{Barham2018} is a spurious
+instability along the baroclinic axis on quadrilateral C grids. While
+\cite{Barham2018} show that on sufficiently fine meshes this
+instability is easily suppressed by moderate biharmonic viscosity and
+diffusion if a fourth-order advection of buoyancy is used, much higher
+viscosity is needed on coarse meshes because the spurious instability
+penetrates into the range of wavenumbers of physical baroclinic
+instability.
+
+Several new ocean circulation models (FESOM, ICON-o and MPAS-Ocean)
+are formulated on unstructured (triangular or hexagonal) meshes and
+use different horizontal spatial discretizations. An obvious
+motivation for studying the discrete Eady problem for these
+discretizations is the question of their accuracy. Some aspects of the
+answer can be foreseen, as C grids on such meshes generally imply less
+averaging than B grids, same as on quadrilateral meshes. More
+important, however, is the question about the consequences of spurious
+numerical modes (see e.g. \cite{LeRoux2007,LeRoux2012,Danilov2013})
+maintained by staggered discretizations on triangular or hexagonal
+meshes. These modes were studied predominantly in the context of
+linearized shallow water equations, where they create spurious wave
+branches which are neutral and hence can be damped. A real question is
+what happens in unstable 3D flows, especially in the light of possible
+spurious baroclinic instability found in \cite{Barham2018}. Our study
+reveals many unexpected details which are briefly discussed
+below. Before doing this we make several remarks on the quadrilateral
+meshes, which we also explored for comparison.
+ 
+\subsection{Quadrilateral A, B, C grids}
+First, the analysis of \cite{Barham2018} assumes that the basic flow
+is aligned with the mesh. The other limiting case is the flow directed
+along the mesh diagonal. We found that this case the accuracy is even
+slightly improved, so that the results of \cite{Barham2018}hold for
+arbitrary orientation of the flow and the mesh.
+
+Second, the discrete linearized equations written down in
+\cite{Barham2018} for B and C grids show that on the symmetric axis
+the B-grid equations differ mainly by additional averaging of vertical
+velocity in the vertical momentum advection and horizontal velocity in
+the advection of mean buoyancy in the buoyancy equation. The pressure
+gradient averaging on B grid does not affect perturbations along the
+baroclinic or symmetric axes. This alone implies that the traditional
+thinking about the B and C grids in terms of the accuracy of pressure
+gradient is insufficient, and other factors are responsible for the
+less accurate behavior of the B grids. To put this result in a broader
+context, we analyzed the quadrilateral A grid. In this case the
+averaging of vertical velocity in momentum equation drops out, but
+pressure gradient is less accurate on the baroclinic and symmetric
+axes. The result (not shown here, but reproducible with the scripts in
+the Supplementary Material) is that the A grid is similar to the B
+grid as concerns the representation of the growth rates of baroclinic
+and symmetric instabilities. The averaging leading to the loss of
+accuracy (as compared to C grid) is different on A and B grids, but
+leads to similar consequences. This also means that the pressure
+gradient averaging which is the main drawback of A grids in the
+context of shallow water wave dynamics does not really make A grids
+worser than B grids. However, similar to the C grid, the A grid
+maintains spurious instability on the baroclinic axis. The spurious
+part is separated by a gap from the physical one at $a=12.5$ km or
+higher, but merges with the physical one for $a=25$ km. Respectively,
+biharmonic friction with $V_0=0.01$ m/s is needed on the coarse mesh
+to suppress the spurious branch, but already $V_0=0.003$ m/s is
+sufficient for $a=12.5$ km. The very similar behavior is found for the
+C grid, where $V_0=0.01$ m/s is needed for $a=25$ km and $V_0=0.006$
+m/s is needed for $a=12.5$ km in the case of the fourth order method
+for buoyancy advection. The fourth order advection of buoyancy is
+helpful on the A grid, but its presence is less critical than for C
+grids.
+
+Third, although the C grid is more accurate in representing symmetric
+instability, it is not accurate enough at high wavenumbers. Since the
+simulated instability range continues to the cutoff wavenumber,
+additional dissipation will be needed to suppress the instability on
+grid scales, as all discrete operators are inaccurate in this case.
+
+\subsection{Triangular A, B and C grids and hexagonal C grid}
+Formulated briefly, the main result of our analysis in this work is
+that all staggered discretizations (i.e. B and C grids) maintain
+spurious instabilities along baroclinic and symmetric axes. All
+need dissipation to suppress these modes. The spurious part is
+generally a combination of several branches, and we hypothesize that
+they are partly related to the spurious modes maintained by these
+discretizations. The reader shall be reminded that these modes are created by
+the disagreement between the numbers of discrete velocity and pressure
+degrees of freedom, which is due to the geometry of triangular or
+hexagonal meshes. In contrast to the quadrilateral meshes, the
+symmetric axis is also affected, and there is strong sensitivity of
+the spurious part to the direction of the flow with respect to the
+mesh. Additionally, spurious instabilities violate Galilean
+invariance, being sensitive to the addition of a uniform flow to the
+flow centered around the mid-depth. This is an indication that the
+spurious instabilities involve spurious modes. A possibility for this
+violation is created by the representation of discrete velocities. On
+triangular and hexagonal C grids, the three normal velocity
+projections over-define a vector field (see,
+e.g. \cite{Danilov2010,Gassmann2011}), and it can be shown that in
+this case the Fourier symbol of the linearized momentum advection has
+two physical and one spurious eigenvalue. For triangular B grids,
+there are two spurious eigenvalues due to the geometrical difference
+in the orientation of any two adjacent triangles. These spurious
+eigenvalues do not describe physical advection. Uncovering how the
+spurious modes of these staggered discretizations induce spurious
+branches of baroclinic and symmetric instabilities might be worth of
+attention, but is beyond the scope of the present work. In each case a
+relatively moderate dissipation is generally sufficient to suppress
+the instability on the baroclinic axis. The dissipation depends on the
+resolution, on the orientation of the flow to the mesh and on the
+accuracy and implementation of the advective operators. The biharmonic
+diffusion and viscosity with coefficients scaling as $V_0l^3$ is
+generally sufficient to suppress spurious modes for relatively
+moderate values of $V_0$ ($V_0<0.01$ m/s, except for very coarse
+meshes), but even these values may already affect the accuracy of
+maximum instability increment or the range of wavenumbers where
+physical instability is observed.
+
+On the symmetric axis, the spurious part is often attached to the
+physical part, and it is difficult to see where the physical branch
+ends and the spurious one starts. The associated growth rates depend
+on the details of advection and flow direction. The analysis of
+eigenvectors might be helpful to disentangle spurious and physical
+parts, but it is delayed to future studies. The actual dissipation
+needed to suppress spurious symmetric instabilities remains depends on
+this analysis, but in any case, the situation is less promising than
+the one on the quadrilateral meshes.
+
+Unexpectedly, among the discretizations explored here the collocated
+triangular A grid shows the least problematic performance compared to
+its staggered counterparts. It suffers from a spurious instability
+along the baroclinic axis, but this instability is disconnected from
+the physical branch on sufficiently fine meshes ($a=12.5$ km or finer)
+and can be easily suppressed, with $V_0=0.002$ m/s on the coarse mesh
+($a=25$ km) and already $V_0=0.0007$ m/s for $a=12.5$ m/s. In
+contrast, the spurious instabilities of staggered discretizations
+often penetrate in the range where physical instabilities are present.
+
+\subsection{Brief comparison of unstructured mesh discretizations}
+
+The discretizations considered here behave similar to quadrilateral
+grids in simulating the baroclinic instability. The A and B grids
+under-predict the increment of maximum instability on coarse meshes,
+but the difference is already small for $a=12.5$ km. The C grids
+slightly over-predict the increment on coarse meshes. The main point
+is the level and type of dissipation needed to remove spurious
+contributions. For example, the B grid needs a special implementation
+of the Laplacian operator to suppress its geometrical numerical modes
+seen in decoupling of velocities on adjacent triangles. In some cases
+it has been found that spurious instabilities can only be efficiently
+suppressed only if biharmonic viscosity is accompanied by biharmonic
+diffusion.
+   
+Neither of staggered (triangular B and C and hexagonal C) grids is
+optimal for simulations of symmetric instability, and triangular A
+grid presents a safer option in this case. Spurious behavior on the
+symmetric axis is commonly associated with the Hollingsworth
+instability triggered by the use of different stencils for the
+vorticity and kinetic energy gradient terms in the vector invariant
+form of momentum advection (\cite{Hollingsworth1983, BellPT2017,
+Ducousso2017}). \cite{Barham2018} show that the spurious branch
+appears on the C grid if the energy and enstrophy conserving
+discretization of momentum advection is used, which demonstrates this
+problem. The appearance of spurious branches might therefore be
+expected for the C grids, as they use the vector invariant form of
+momentum advection. However, they also appear on the B grid for a
+purely advective or flux forms of momentum advection, which do not
+split the momentum advection into two separate contributions (as the
+vector invariant forms do). This fact and the violation of Galilean
+invariance indicate that the situation is more complicated here and
+affected by the presence of spurious modes, or in other words, by the
+redundant representation of discrete velocities.  The increments of
+symmetric instability simulated by triangular and hexagonal C grids
+are higher than by A and B grids, but, as mentioned above, an
+additional study is needed to precisely separate the physical and
+spurious behavior on staggered grids.
+
+\subsection{The comparison with quadrilateral meshes}
+Triangular and quadrilateral A grids are very similar on the
+baroclinic and symmetric axes, and similarity continues even for the
+magnitude of viscosity and diffusivity needed to remove spurious
+instability branches. The quadrilateral B grid is much more robust
+than its triangular counterpart as it does not support spurious
+instability branches. Despite the absence of pressure gradient
+averaging in the triangular case, this discretization encounters more
+issues related to its spurious modes. Similarly, triangular and
+hexagonal C grids are less robust than the quadrilateral C grid, but
+here the main issue is the behavior on the symmetric axis.
+ 
+\subsection{Some considerations}
+As we have seen, the redundant representation of velocities in
+staggered discretizations on triangular and hexagonal meshes
+contributes to the appearance of spurious instability branches in the
+discrete Eady problem. One may hope that the use of WENO-type methods
+for momentum and tracer advection will suppress possible oscillations
+in solutions and thus will efficiently damp geometrical modes
+supported by staggered discretizations, with direct effect on spurious
+instability branches.
+
+The triangular A and B grids can work on arbitrary triangular meshes,
+in contrast to the C grids which need the so called orthogonal
+meshes. The latter contain centers of circumscribed circles within
+respective triangles. In reality, the A and B grids are even more
+general and can be extended to arbitrary polygonal meshes, or mixed
+meshes containing polygons of different type. Such an extension can to
+some degree be done for C grids, but is much less general because of
+the orthogonality constraint. The extension to mixed unstructured
+meshes can be a promising further step for triangular B grids. In
+fact, mixed unstructured meshes formed predominantly by quadrilateral
+elements, are already used in FESOM-C, the coastal branch of FESOM
+(\cite{DanilovAndrosov2015,Androsov2019}), where they generally
+warrant a more stable performance than purely triangular meshes
+without any loss in flexibility.
+
+\subsection{Eddy permitting meshes}
+The reasoning about the relationship between the Rossby radius $L_d$
+and the mesh resolution depends on the inclusion of $1/\pi$ in the
+definition. \cite{Barham2018} use $L_d=NH/f_0=40$ km which does not
+include this factor. We therefore avoid using $L_d$, and take the
+scale of the maximum of baroclinic instability in the
+consideration. It corresponds to $k^*\approx4\times10^{-5}$ 1/m, which
+gives $k^*a$=1 for $a$=25 km. In this case, $\lambda^*/a=2\pi$, while
+$\ lambda/a=2$ corresponds to the spectral cutoff. Here $\lambda$
+denotes the wavelength. This is a relatively coarse mesh, as the scale
+of maximum instability is only about 3 cutoff wavelengths, which is
+formally eddy permitting. On the quadrilateral B grid, the growth rate
+multiplied with $N/M^2$ at this resolution is about 0.26 and it is
+0.28 on the C grid where dissipation with $V_0=0.01$ m/s is needed to
+suppress the spurious branch. They should be compared to the
+theoretical value of 0.31. For $a=50$ km the growth rate is 0.18 on
+the B grid and 0.20 on the C grid with the dissipation increased to
+$V_0=0.015$ m/s for the C grid. The C grid stays more accurate despite
+the dissipation, but the difference between the B and C grids is not
+large. If the same dissipation is applied to the B grid, the result
+decreases to 0.24 and 0.15 respectively, but this dissipation is not
+needed in the present framework. \cite{Barham2018} hypothesize that
+the reduced growth rate might be the reason why eddy permitting meshes
+(and B grids in particular) simulate insufficient eddy energy
+levels. The growth rate is indeed reduced for $a=25$ km compared to
+the finer meshes, but it is still large so that it is difficult to
+accept that this reduction plays a fundamental role.
+
+A common motivation for the energy backscatter parameterization is the
+need to handle over-dissipation in eddy-permitting models. An
+illustration is provided by the dissipation spectra in
+\cite{Soufflet2016} showing that the maximum of kinetic energy
+dissipation due to biharmonic friction occurs approximately where the
+energy peaks. We, however, see that the biharmonic viscosity with
+typical $V_0$ can only reduce the growth rate of instabilities by
+about 10\% for $a=25$ km, and much less if the resolution is
+increased. So the over-dissipation is related not so much to the
+direct damping of growing instability as to the excessive damping of
+adjacent higher wavenumbers and steepening the energy spectra to the
+extent that they roll off faster than $k^{-4}$. This moves the peak of
+dissipation diagnosed at quasi-equilibrium to the largest
+scales. Ultimately the over-dissipation is due to the effect of
+scaling of viscosity $\nu=V_0l^3$, which makes it larger at given
+wavenumber on coarser meshes.
+
+
+\section{Conclusion}         
+As a follow-up to \cite{Barham2018} we analyzed the discrete Eady
+instability problem on triangular A and B grids, for the mimetic
+discretization of ICON-o (abbreviated as triangular C grid) and on the
+hexagonal C grid. We show that the staggered discretizations
+(triangular B and C grids and hexagonal C grid) maintain spurious
+instability branches on both baroclinic and symmetric axes. These
+branches are at least partly induced by numerical modes of these
+discretizations. This is indicated by the loss of Galilean invariance
+for these branches. The collocated triangular A grid has a spurious
+branch on the baroclinic axis, but no such branches on the symmetric
+axis. The spurious instability branches are sensitive to the alignment
+between the mean flow and the mesh and to the discretization of the
+advection of momentum and scalars.
+
+We demonstrate that these grids have very similar accuracy in
+representing the physical branch of baroclinic instability, with C
+grids being slightly more accurate than the A and B grids at the
+coarsest mesh considered here, similar to quadrilateral meshes. On the
+symmetric axis, all staggered grids are contaminated by spurious
+branches which penetrate into the region of physical
+instabilities. The behavior is similar to that induced by the
+Hollingsworth instability, but is, at least partly, related to the
+presence of geometrical modes maintained by discretizations.
+
+Moderate biharmonic dissipation of momentum and buoyancy is found to
+be sufficient to suppress the spurious branches on the baroclinic axis
+if meshes are fine enough, but the dissipation coefficient with $V_0$
+as high as 0.01 m/s is needed when the resolution is
+coarsened. However, similar levels of dissipation are also needed on
+the quadrilateral A and C grids in this case. The level of dissipation
+needed to suppress spurious branches on the symmetric axis requires
+additional studies, as spurious branches intersect with physical ones
+on triangular and hexagonal staggered grids. We only show that
+moderate dissipation is sufficient to suppress spurious instability at
+spectral end.
+
+We show that triangular and hexagonal C grids do not reach the
+performance of quadrilateral C grid. Similarly, triangular B grid does
+not reach the performance of quadrilateral B grid. Unexpectedly
+enough, the triangular A grid is least problematic and is not any
+worse than other grids considered here in simulating instabilities in
+the framework of Eady problem.
+
+The main recommendation of this study is that a careful choice of
+dissipation is needed to suppress spurious behavior for the staggered
+discretizations considered here, especially if instabilities along the
+symmetric axis are of interest.
