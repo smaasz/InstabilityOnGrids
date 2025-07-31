@@ -1,16 +1,16 @@
 % Eady setup, triangular mimetic C-grid, baroclinic and symmetric 
 % instability
-  a=12500.0;               % -- side of triangle
+  a=3250.0;               % -- side of triangle
   h=a*sqrt(3)/2;           % -- the height of triangle 
   
-  theta=0;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
+  theta=pi/2;              % -- l=sqrt(3)Ksin(theta)/2, k=Kcos(theta)
   thetaw=0;                % -- mean flow direction
   
   f0=-0.0001;
   g=100000000;               % To effectively impose the rigid lid
   %g=10;
   N=0.001; N2=N*N;
-  Ri=100;                  % -- Richardson number
+  Ri=1/2;                  % -- Richardson number
   M2=abs(N*f0)/sqrt(Ri);        % -- M^2, i. e. the horizontal stratification
   Nz=64;                   % -- the number of vertical layers
   H0=4000;                 % -- fluid depth
@@ -188,9 +188,9 @@
 
  data = jsonencode(df);
 
- f = fopen('/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl','a');
- fprintf(f, '%s\n', data);
- fclose(f);
+ %f = fopen('/Users/stmaas001/Projects/OceanFlows/SemiAnalyticInstabilityAnalysis/data/data.jsonl','a');
+ %fprintf(f, '%s\n', data);
+ %fclose(f);
 
  
 plot(Kvec/a, w*N/abs(M2))

@@ -56,31 +56,52 @@ save("plots/baro-instab-quad-2.svg",f)
 #------------------------------baroclinic instabiliy------------------
 df_bar = filter(row -> row.Ri ≈ 100 && row.a ≈ 12.5, df);
 
-f = Figure(size = (1000, 300));
+xticks = letx
+    fₛ = π/(12.5e3);
+    xs = collect(0.0:fₛ/8:(fₛ*1.1))
+    ls = ["0.0", "fₛ/8", "fₛ/4","3fₛ/8", "fₛ/2","5fₛ/8", "3fₛ/4","7fₛ/8", "fₛ"]
+    (xs, ls)
+end
+f = Figure(size = (1600, 600), fontsize=36);
 ax = Axis(f[1,1];
           xlabel = "wavenumber / m⁻¹",
-          ylabel = "growth rate",
+          ylabel = "growth rate / N M⁻²",
           aspect = 2.5,
+          xticks = xticks,
+          limits = (0.0, π/(12.5e3), -0.05, 0.5),
           );
-for row in eachrow(df_sym)
-    N = row[:N]
-    f₀ = row[:f0]
-    Ri = row[:Ri]
-    M2 = √(N^2 * f₀^2 / Ri)
-    if row[:type] == "true"
-        lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s", row[:type]))
-    else
-        lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%6.3f km, %s, %s-grid", row[:a], row[:type], row[:grid]))
-    end
-end
-f[1,2] = Legend(f, ax; merge=true, valign=:top);
-colsize!(f.layout, 1, Aspect(1, 2.5));
+# quad-C
+row = first(filter(row -> row.Ri ≈ 100 && row.a ≈ 12.5 && row.grid == "quad-C" && row.thetaU ≈ 0.0, df))
+N = row[:N]
+f₀ = row[:f0]
+Ri = row[:Ri]
+M2 = √(N^2 * f₀^2 / Ri)
+lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s-grid", row[:grid]), linewidth=3)
+
+# tri-B
+row = first(filter(row -> row.Ri ≈ 100 && row.a ≈ 12.5 && row.grid == "tri-B" && row.thetaU ≈ π/6 && row.type == "flux", df))
+N = row[:N]
+f₀ = row[:f0]
+Ri = row[:Ri]
+M2 = √(N^2 * f₀^2 / Ri)
+lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s-grid", row[:grid]), linewidth=3)
+
+# true
+row = first(filter(row -> row.Ri ≈ 100 && row.a < 1e-13, df))
+N = row[:N]
+f₀ = row[:f0]
+Ri = row[:Ri]
+M2 = √(N^2 * f₀^2 / Ri)
+lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s", row[:type]), linewidth=3)
+
+axislegend(ax, position=:ct)
 display(f)
+save("plots/baro-instab-2.svg",f)
 
 #------------------------------symmetric instability on B-------------
 df_sym_B = filter(row -> row.Ri ≈ 0.5 && row.thetaU ≈ π/6 && contains(row.grid, "B") && !(contains(row.type, "direct-advective"))  && row.a ≈ 3.125, df);
 
-f = Figure(size = (1000, 500));
+f = Figure(size = (1600, 600), fontsize=36);
 xticks = let
     fₛ = π/(3.125e3);
     xs = collect(0.0:fₛ/4:1.0e-3)
@@ -91,7 +112,7 @@ ax = Axis(f[1,1];
           xlabel = "wavenumber / m⁻¹",
           ylabel = "growth rate / N M⁻²",
           xticks = xticks,
-          aspect = 1.5,
+          aspect = 2.5,
           limits = (nothing, 1.0e-3, nothing, nothing),
           );
 for row in eachrow(df_sym_B)
@@ -102,7 +123,7 @@ for row in eachrow(df_sym_B)
     if row[:type] == "true"
         lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s", row[:type]))
     else
-        lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s-grid", row[:grid]), linewidth=1)
+        lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s-grid", row[:grid]), linewidth=3)
     end
 end
 row = first(filter(row -> row.Ri ≈ 0.5 && row.a < 1e-13, df))
@@ -110,12 +131,13 @@ N = row[:N]
 f₀ = row[:f0]
 Ri = row[:Ri]
 M2 = √(N^2 * f₀^2 / Ri)
-lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s", row[:type]))
+lines!(ax, row[:ks], row[:vs]*N/abs(M2), label=@sprintf("%s", row[:type]), linewidth=3)
 
-f[1,2] = Legend(f, ax; merge=true, valign=:top);
-colsize!(f.layout, 1, Aspect(1, 1.5));
+#f[1,2] = Legend(f, ax; merge=true, valign=:top);
+#colsize!(f.layout, 1, Aspect(1, 1.5));
+axislegend(ax, position=:lt);
 display(f)
-save("plots/sym-instab-B.svg",f)
+save("plots/sym-instab-B-2.svg",f)
 
 #------------------------------symmetric instab on tri----------------
 
