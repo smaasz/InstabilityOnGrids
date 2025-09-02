@@ -24,7 +24,7 @@ const hmt_schemes = Dict(
 	:asc => "advective form, streamline derivative on cells",
 	:avi => "advective form, vector-invariant", 
 	:fdv => "flux form, divergence on vertices", 
-	:fdcre => "flux form, diverence on cells with reconstruction on edges"
+	#:fdcre => "flux form, diverence on cells with reconstruction on edges"
     ],
     :TriC => [
 	:ICON => "ICON"
@@ -133,7 +133,7 @@ function test_baroclinic(; θU=π/6, β=0, 𝕂ᵘ, 𝕂ᵇ, le, Nz=8)
     Ri = 100
 
     for grid_t in [:TriA, :TriB, :TriC, :HexC]
-        for hmt_scheme in hmt_schemes[grid_t]
+        for hmt_scheme in first.(hmt_schemes[grid_t])
 
             config = @dict(grid_t, hmt_scheme, Nz, H)
             path   = joinpath(@__DIR__, "..", "data")
@@ -163,6 +163,36 @@ function test_symmetric(; θU=π/6, β=0, 𝕂ᵘ, 𝕂ᵇ, grid_t, hmt_scheme, 
             
             eadyinstance = analyzeinstability(; eady_jac, Ri, θU, β, 𝕂ᵘ, 𝕂ᵇ, grid_t, hmt_scheme, le, Nz)
             push!(df, eadyinstance)
+        end
+    end
+    df
+end
+
+function testall(; θUs, βs, 𝕂ᵘs, 𝕂ᵇs, les, Nz=8)
+    df = initialdf()
+    for grid_t in [:TriA, :TriB, :TriC, :HexC]
+        for hmt_scheme in first.(hmt_schemes[grid_t])
+
+            config = @dict(grid_t, hmt_scheme, Nz, H)
+            path   = joinpath(@__DIR__, "..", "data")
+            data, file = produce_or_load(runeady, config, path)
+            @unpack eady_jac_ex, eady_sys = data
+            eady_jac = [@RuntimeGeneratedFunction(GridOperatorAnalysis, eady_jac_ex[i,j]) for i=1:size(eady_jac_ex,1), j=1:size(eady_jac_ex,2)]
+
+            for Ri in [1/2, 100]
+                for θU in θUs
+                    for β in βs
+                        for 𝕂ᵘ in 𝕂ᵘs
+                            for 𝕂ᵇ in 𝕂ᵇs
+                                for le in les
+                                    eadyinstance = analyzeinstability(; eady_jac, Ri, θU, β, 𝕂ᵘ, 𝕂ᵇ, grid_t, hmt_scheme, le, Nz)
+                                    push!(df, eadyinstance)
+                                end
+                            end
+                        end
+                    end
+                end
+            end
         end
     end
     df
