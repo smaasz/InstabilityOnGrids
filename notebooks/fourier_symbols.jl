@@ -59,13 +59,22 @@ __Grid__: $(@bind grid_t Select([:TriA, :TriB, :TriC]; default=:TriA))
 """
 
 # ╔═╡ cfb78fd5-4435-4c0d-8cf2-1b5fffc2f91e
-@variables f₀ g N² Ri le ϵ k l h a M² θU β
+@variables f₀ g N² Ri le ϵ k l h a M² β
+
+# ╔═╡ 7e3b24cf-8b3c-4b80-a0d4-d80051e9d7fe
+θU = 0
+
+# ╔═╡ c6283dad-ae0a-4b8c-8c93-5ae02668a191
+rewriter = let
+	r = Symbolics.@acrule ~α * ~(~x) + ~β * ~(~x) => *(~α + ~β, ~(~x)...)
+	rewriter = SymbolicUtils.Prewalk(SymbolicUtils.PassThrough(r))
+end
 
 # ╔═╡ fb5e7874-c067-4769-aefa-260fd3eca00b
-bflow = eady_background_flow(Val(grid_t), a; f₀, N², Ri, θU=0, β=0);
+bflow = eady_background_flow(Val(grid_t), a; f₀, N², Ri, θU, β);
 
-# ╔═╡ bd9551af-d36f-4b8c-99cf-02577b13b9b4
-Ū = (z + 4000 * (1//2 + 0)) * -M²/f₀
+# ╔═╡ 1b94a213-9311-4dad-bc3e-0ac2dcb71e14
+Ū = (z + 4000 * (1//2 + β)) * -M²/f₀
 
 # ╔═╡ 3b152922-e343-42a1-b863-38814a80b0d7
 md"""
@@ -408,15 +417,25 @@ end;
 
 # ╔═╡ ed74cf26-7ae6-43f6-9303-09c46b0fae0a
 rtrig = let
+	function p(x)
+		 !isequal(x, θU)
+	end
 	rcos = let
     	x = Symbolics.variable(:x)
-    	Symbolics.@rule cos(~x)=>substitute(taylor(cos(x),x,0:5), Dict([x=>~x]))
+    	Symbolics.@rule cos(~x::p) => substitute(taylor(cos(x),x,0:5), Dict([x=>~x]))
 	end
 	rsin = let
     	x = Symbolics.variable(:x)
-    	Symbolics.@rule sin(~x)=>substitute(taylor(sin(x),x,0,0:5), Dict([x=>~x]))
+    	Symbolics.@rule sin(~x::p)=>substitute(taylor(sin(x),x,0,0:5), Dict([x=>~x]))
 	end
 	SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(SymbolicUtils.RestartedChain([rcos, rsin])))
+end
+
+# ╔═╡ 7b864ab1-b61c-481c-849a-9824c9abc984
+rpyt = let
+	r = Symbolics.@acrule sin(~x)^2 + cos(~x)^2 => one(~x)
+	@show r(cos(l)^2+sin(l)^2)
+	SymbolicUtils.Prewalk(SymbolicUtils.PassThrough(r))
 end
 
 # ╔═╡ c8c98ec3-094e-4749-a611-2f1675f30fcb
@@ -432,13 +451,13 @@ if colpt_type(flow_t, :u⃗) == :edge
 	_fhmt = expand(fhmt)
 	_fhmt = substitute(_fhmt, merge(sqrt3subs, Dict(le=>a, √(f₀^2*N²/Ri) => M²)))
 	_fhmt = expand(_fhmt)
-	simplify(taylor_coeff(_fhmt, fflow.u⃗[jH], 1))
+	simplify(expand(taylor_coeff(_fhmt, fflow.u⃗[jH], 1)))
 else
 	(; jH, iTH, jTH) = inputs
 	_fhmt = expand(fhmt[iTH])
 	_fhmt = substitute(_fhmt, merge(sqrt3subs, Dict(le=>a, √(f₀^2*N²/Ri) => M²)))
 	_fhmt = expand(_fhmt)
-	simplify(taylor_coeff(_fhmt, fflow.u⃗[jTH, jH], 1))
+	simplify(expand(taylor_coeff(_fhmt, fflow.u⃗[jTH, jH], 1)))
 end
 
 # ╔═╡ 4c1b9413-298c-42f5-aa72-c53c84f0f19d
@@ -464,49 +483,64 @@ end
 simplify(fmu / Ū)
 
 # ╔═╡ 38060711-bb39-4437-bcf9-a412a3eb4c08
-let
+fsu_, fsb_ = let
 	_fhst = expand(fhst)
 	_fhst = substitute(_fhst, merge(sqrt3subs, Dict(le=>a, √(f₀^2*N²/Ri) => M²)))
 	_fhst = expand(_fhst)
 	if colpt_type(flow_t, :u⃗) == :edge
 		(; jH, bjH) = inputs
 		(
-			simplify(taylor_coeff(_fhst, fflow.u⃗[jH], 1)),
-			simplify(taylor_coeff(_fhst, fflow.b[bjH], 1))
+			simplify(taylor_coeff(_fhst, fflow.u⃗[jH], 1); expand=true),
+			simplify(taylor_coeff(_fhst, fflow.b[bjH], 1); expand=true)
 		)
 	else
 		(; jH, jTH, bjH) = inputs
 		(
-			simplify(taylor_coeff(_fhst, fflow.u⃗[jTH, jH], 1)),
-			simplify(taylor_coeff(_fhst, fflow.b[bjH], 1))
+			simplify(taylor_coeff(_fhst, fflow.u⃗[jTH, jH], 1); expand=true),
+			simplify(taylor_coeff(_fhst, fflow.b[bjH], 1); expand=true)
 		)
 	end
 end
 
 # ╔═╡ 60f00b5c-e56f-45cb-b032-cd60d6384558
 fsu, fsb = let
-	(; bjH) = inputs
-	_fhst = simplify(fhst; rewriter=rtrig)
-	_fhst = expand(_fhst)
-	_fhst = substitute(_fhst, merge(sqrt3subs, Dict(le=>a, √(f₀^2*N²/Ri) => M²)))
-	_fhst = taylor_coeff(_fhst, k, 1)
-	_fhst = expand(_fhst)
-	fsb   = taylor_coeff(_fhst, fflow.b[bjH], 1)
-	fsb   = expand(simplify(fsb))
-	fsu = if colpt_type(flow_t, :u⃗) == :edge
-		(; jH) = inputs
-		fs = taylor_coeff(_fhst, fflow.u⃗[jH], 1)
-		expand(simplify(fs))
-	else
-		(; jTH, jH) = inputs
-		fs = taylor_coeff(_fhst, fflow.u⃗[jTH,jH], 1)
-		expand(simplify(fs))
+	fsus = []
+	fsbs = []
+	for var in [k, l]
+		(; bjH) = inputs
+		_fhst = simplify(fhst; rewriter=rtrig)
+		_fhst = expand(_fhst)
+		_fhst = substitute(_fhst, merge(sqrt3subs, Dict(le=>a, √(f₀^2*N²/Ri) => M²)))
+		_fhst = taylor_coeff(_fhst, var, 1)
+		_fhst = simplify(_fhst; expand=true)
+		fsb   = taylor_coeff(_fhst, fflow.b[bjH], 1)
+		fsb   = simplify(fsb; expand=true)
+		push!(fsbs, fsb)
+		fsu = if colpt_type(flow_t, :u⃗) == :edge
+			(; jH) = inputs
+			fs = taylor_coeff(_fhst, fflow.u⃗[jH], 1)
+			simplify(fs; expand=true)
+		else
+			(; jTH, jH) = inputs
+			fs = taylor_coeff(_fhst, fflow.u⃗[jTH,jH], 1)
+			simplify(fs; expand=true)
+		end
+		push!(fsus, fsu)
 	end
-	(fsu, fsb)
+	(simplify(cos(θU) * fsus[1] + sin(θU) * fsus[2]), cos(θU) * fsbs[1] + sin(θU) * fsbs[2])
 end
 
 # ╔═╡ 81781a43-27ba-4920-8323-473cf3feb976
-expand(simplify(fsb / Ū))
+simplify(simplify(fsb / Ū))
+
+# ╔═╡ f0e541cf-b2f5-40f5-8379-b1f8ef1a4fe8
+let
+	@variables a[1:300]
+	r = Symbolics.@rule ~α * ~(~x) + ~β * ~(~x) => *(~α + ~β, ~(~x)...)
+	rewriter = SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(r))
+	t = +([a[i] * a[i+1] * a[i+2] * a[i+3] * a[i+4] for i=1:5:300]...)
+	simplify(t; rewriter)
+end
 
 # ╔═╡ Cell order:
 # ╟─b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
@@ -516,8 +550,10 @@ expand(simplify(fsb / Ū))
 # ╠═d2b72544-78fb-4a0b-b169-aa50ebaeb31d
 # ╟─9abfbc35-bd37-4554-949c-27cd2bdfa1a7
 # ╠═cfb78fd5-4435-4c0d-8cf2-1b5fffc2f91e
+# ╠═7e3b24cf-8b3c-4b80-a0d4-d80051e9d7fe
+# ╠═c6283dad-ae0a-4b8c-8c93-5ae02668a191
 # ╠═fb5e7874-c067-4769-aefa-260fd3eca00b
-# ╟─bd9551af-d36f-4b8c-99cf-02577b13b9b4
+# ╠═1b94a213-9311-4dad-bc3e-0ac2dcb71e14
 # ╠═8ae523f0-1eeb-4d62-b089-502c52dd1277
 # ╠═780abc6b-d9ab-40d1-9a01-d12b1d3fc3ae
 # ╟─3b152922-e343-42a1-b863-38814a80b0d7
@@ -528,7 +564,7 @@ expand(simplify(fsb / Ū))
 # ╠═f71432b9-cb86-4f5e-a6ba-4ad443140292
 # ╠═ec914f25-22a9-486b-b893-a5484cf109f7
 # ╟─583e619a-76da-4f63-8377-b5eac40c96af
-# ╟─2e0a237f-fe84-4fd5-a26f-76d7976a16ef
+# ╠═2e0a237f-fe84-4fd5-a26f-76d7976a16ef
 # ╟─52def68d-5f55-48f8-8e9c-e2f387800bbc
 # ╟─4c1b9413-298c-42f5-aa72-c53c84f0f19d
 # ╠═bf388183-ad70-4a97-b9ac-2c0f96ef87ef
@@ -539,7 +575,7 @@ expand(simplify(fsb / Ū))
 # ╠═534e0d3c-8453-4096-8aaf-354691a04826
 # ╠═a30cee69-cce3-4044-900e-a3a6188b4653
 # ╟─698f9004-f56b-41c0-b6a6-b55c505fb1a8
-# ╟─38060711-bb39-4437-bcf9-a412a3eb4c08
+# ╠═38060711-bb39-4437-bcf9-a412a3eb4c08
 # ╠═60f00b5c-e56f-45cb-b032-cd60d6384558
 # ╠═81781a43-27ba-4920-8323-473cf3feb976
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
@@ -551,5 +587,7 @@ expand(simplify(fsb / Ū))
 # ╟─3782fb16-26b7-4edd-8591-ef119b1cabef
 # ╟─d424025e-3efd-4c4b-8d97-7369ff3618da
 # ╟─423c5bfc-d6e2-46cc-a29f-05e3d9d3c84b
-# ╟─ed74cf26-7ae6-43f6-9303-09c46b0fae0a
+# ╠═ed74cf26-7ae6-43f6-9303-09c46b0fae0a
+# ╠═7b864ab1-b61c-481c-849a-9824c9abc984
 # ╠═c8c98ec3-094e-4749-a611-2f1675f30fcb
+# ╠═f0e541cf-b2f5-40f5-8379-b1f8ef1a4fe8
