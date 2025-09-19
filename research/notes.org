@@ -1,5 +1,35 @@
 #+STARTUP: content latexpreview
-#+LATEX_HEADER: \usepackage{amsmath} \usepackage{bm} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_v^c}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
+#+LATEX_HEADER: \usepackage{mathtools} \usepackage{bm} \usepackage{tikz} \usetikzlibrary {shapes.geometric} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_v^c}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
+
+* Title
+Effects of horizontal discretization on triangular and hexagonal grids on linear baroclinic and symmetric instabilities
+* Abstract
+As global ocean general circulation models are run at eddy-permitting
+resolutions, reproducing accurate growth rates of baroclinic
+instabilities is a major concern when choosing a discretization of the
+equations of motion. From this viewpoint, discretizations on
+triangular and hexagonal grids with different types of variable
+staggering are analyzed, as several well-established models use
+formulations on (possibly) unstructured meshes. By extending the
+linear baroclinic instability analysis in the Eady configuration by
+Barham et al. to discretizations on more complex grids, several
+numerical subtleties are revealed. However, it is shown that in each
+case, moderate biharmonic dissipation suppresses spurious branches on
+the baroclinic axis.  In comparison to discretizations on
+quadrilateral grids, the analyzed discretizations are less robust
+against spurious modes, as expected due to additional geometric
+modes. Some of the subtleties arise because discretizations on
+triangular and hexagonal grids do not adhere to Galilean
+invariance. As a consequence, the spurious branches of instability
+demonstrate a dependence on the alignment between the background flow
+and the grid lattices, as well as the strength of a uniform background
+flow. The interactions with spurious modes become more significant on
+the axis of symmetric instabilities, where the physical and spurious
+branches of instability are even more difficult to separate in
+wavenumber space. Our analysis illustrates the need to carefully
+calibrate the viscosity and diffusivity parameters for each of the
+considered discretizations in order to suppress spurious branches of
+instabilities.
 
 * Introduction
 At present there are several global ocean general circulation models
@@ -85,13 +115,13 @@ Since our focus lies on the triangular B grid discretization
 hexagonal C grid discretization (cf. \cite{Ringler2013}) and the
 triangular A grid formulation will be relegated to the appendix.
 
-** Triangular B Grid
+** triangular B Grid
 On a structured triangular B grid the horizontal velocities are
-collocated at the centroids of the triangles. In a finite volume
+located at the centroids of the triangles. In a finite volume
 formulation their values are interpreted as the mean on the
 resprective triangles which are called \textit{cells} in this
 context. The scalar quantities such as surface height, pressure,
-bouyancy and vertical velocity are staggered with respect to the
+buoyancy and vertical velocity are staggered with respect to the
 horizontal velocities and are collocated at the vertices of the
 grid. Their values may be interpreted as mean values on the control
 volumes of the dual mesh. Note that the dual mesh of a structured
@@ -113,10 +143,10 @@ triangular grid is a hexagonal grid (see Figure ???).
 
 The horizontal discretization of the governing equations may be
 formulated in terms of discrete analogous of the differential
-operators. Using the notation of \cite{Danilov2017} discrete analogues
-of the gradient of a scalar quantity, the divergence of a flux, and
-the curl of the horizontal velocity are given by the following three
-expressions.
+operators. Using the notation of \cite{Danilov2017} (see table ...)
+discrete analogues of the gradient of a scalar quantity, the
+divergence of a flux, and the curl of the horizontal velocity are
+given by the following three expressions.
 
 \begin{equation*}
 \big( \nabla \boldsymbol{p}\big)_c
@@ -136,20 +166,18 @@ The transport of momentum may be either discretized in the flux form
 or the advective form. In both cases different discretizations have
 been proposed \cite{???}. Here the analysis is restricted to ...
 
-
 In the language of crystallography the collocation points of the
 scalar quantities form a hexagonal lattice. Each primitive unit cell
-contains two collocation points of horizontal velocity. In particular,
-these collocation points form two rhombic (centered rectangular)
-lattices. The mismatch in degrees of freedom allows for spurious modes
-that need to dissipated by an appropriate viscosity operator
-\cite{???}.
+contains two grid points of horizontal velocity. In particular, these
+grid points form two hexagonal lattices. The mismatch in degrees of
+freedom allows for spurious modes that need to be dissipated by an
+appropriate viscosity operator \cite{???}.
 
-The discrete operators may be interpreted as (pointwise products of)
+The discrete operators may be interpreted as (the sum of pointwise products of)
 discrete convolutions on these lattices. The kernels may be defined on
 a lattice ismorphic to the lattice of the respetive input signal but
 shifted to a collocation point of the respective output signal. The
-Fourier symbol of a (linearized) discrete operator is then given by
+Fourier symbol of a linear discrete operator is then given by
 the discrete Fourier transform of the respective convolution kernels.
 
 
@@ -167,7 +195,7 @@ vectors and constants
 **** divergence
 \begin{equation*}
 \big(\nabla\cdot\boldsymbol{\Vec{F}}\big)_v
-= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} d_e \Vec{n}_{v,e} \cdot \Vec{F}_c
+= \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} \ell_{\Hat{e}} \Vec{n}_{v,e} \cdot \Vec{F}_c
 \end{equation*}
 **** gradient
 \begin{equation*}
@@ -186,30 +214,48 @@ vectors and constants
 \Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}}\big) \Big)_v = \sum_{e\in E(v)} \sum_{c\in C(e)} \frac{\ell_e}{2} \Vec{n}_{v,e}^\perp \cdot \Vec{u}_c
 \end{equation*}
 **** horizontal momentum advection
+***** advective form
+****** streamline directional derivative using the vector gradient
+A discrete operator for momentum transport in advective form is
+obtained by first computing the full gradient of the horizontal
+velocity and then dot it with the horizontal velocity to obtain the
+change in velocity along a streamline.
+#+NAME: hma-advective-form-vector-gradient
+\begin{equation*}
+\Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
+= \Big(\boldsymbol{\Vec{u}}\cdot \big(\nabla \boldsymbol{u_i}\big)_c\Big)_c
+\end{equation*}
 ***** flux form
 The simplest discretization of the horizontal momentum flux through
 the horizontal faces on a Lorenz grid reconstructs the (transported)
 horizontal velocities onto the mid-level faces and averages the
-vertical velocities. Here the reconstruction is defined by the average
-of the horizontal velocities of the cells adjacent to the face.
+vertical velocities to cell centers. Here the average of the
+horizontal velocities of the cells adjacent to the face is used as
+reconstruction.
 \begin{align*}
 &A_c \left[(\mathrm{Av} w)_{c,k+1/2}(\mathrm{Av} \Vec{u})_{c,k+1/2}-(\mathrm{Av} w)_{c,k-1/2}(\mathrm{Av} \Vec{u})_{c,k-1/2}\right]\\
 &= A_c \left[\Vec{u}_{c,k} \left(  (\mathrm{Av} w)_{c,k+1/2}-(\mathrm{Av} w)_{c,k-1/2}\right) + \frac{1}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]\\
-&= A_c \left[\Delta_z\Vec{u}_{c,k} \left(\mathrm{Av}\left( -\nabla\cdot \Vec{u}\right)_{v,k}\right)_{c,k} + \frac{1}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]
+&= A_c\Delta_z \left[\Vec{u}_{c,k} \left(\mathrm{Av}\left( -\nabla\cdot \Vec{u}\right)_{v,k}\right)_{c,k} + \frac{1}{2} \left((\mathrm{Av} w)_{c,k+1/2} \frac{\Vec{u}_{c,k+1} - \Vec{u}_{c,k}}{\Delta_z} + (\mathrm{Av} w)_{c,k-1/2} \frac{ \Vec{u}_{c,k} - \Vec{u}_{c,k-1} }{\Delta_z}\right)\right]
 \end{align*}
 
 
+
 The discretization of the horizontal momentum flux through the
-vertical faces of the cell is assumed to use two reconstructions of
-the horizontal velocities onto the faces: the \textit{advecting} and
-\textit{transported} horizontal velocities.
+vertical faces of the cell can be (1) either computed on scalar
+control volumes and then averaged to cells, or (2) directly computed
+on cells in which case two reconstructions for the \textit{advecting}
+and \textit{transported} horizontal velocities onto the faces of the
+cell must be specified.
+
+****** TODO Determine the influence of the mismatch of divergence definitions
+How can the mismatch of divergence discretization yield unstable
+modes?
+
+Assume the following discretization of the flux form
 \begin{equation*}
 \Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\Vec{u}_{\mathrm{tr},e}
 %= \Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\left(\Vec{u}_{\mathrm{tr},e} - \Vec{u}_{c,k}\right) + \Vec{u}_{c,k}\Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}
 \end{equation*}
-
-****** TODO Determine the influence of the mismatch of divergence definitions
-
 \begin{equation*}
 \Delta_z\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e}\left(\Vec{u}_{\mathrm{tr},e} - \Vec{u}_{c,k}\right) + A_c\Delta_z\Vec{u}_{c,k}\Bigg(\frac{1}{A_c}\sum_{e\in E(c)} \ell_e \Vec{n}_{c,e} \cdot \Vec{u}_{\mathrm{ad},e} - \left(\mathrm{Av}\left( \nabla\cdot \Vec{u}\right)_{v,k}\right)_{c,k}\Bigg) + \frac{A_c}{2} \left((\mathrm{Av} w)_{c,k+1/2} \left( \Vec{u}_{c,k+1} - \Vec{u}_{c,k}  \right) + (\mathrm{Av} w)_{c,k-1/2} \left( \Vec{u}_{c,k} - \Vec{u}_{c,k-1}  \right)\right)\right]
 \end{equation*}
@@ -243,17 +289,6 @@ Ru_i &= u_{i,\Tilde{c}} + \ell_{\Hat{e}}/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabl
 \end{align*}
 \end{subequations}
 
-***** advective form
-****** streamline directional derivative using the vector gradient
-A discrete operator for momentum transport in advective form is
-obtained by first computing the full gradient of the horizontal
-velocity and then dot it with the horizontal velocity to obtain the
-change in velocity along a streamline.
-#+NAME: hma-advective-form-vector-gradient
-\begin{equation*}
-\Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
-= \Big(\boldsymbol{\Vec{u}}\cdot \big(\nabla \boldsymbol{u_i}\big)_c\Big)_c
-\end{equation*}
 ***** vector-invariant form
 Another appraoch is to discretize the vector-invariant formulation of
 the momentum transport. The tangential component of the momentum flux
@@ -271,14 +306,17 @@ control volumes may be obtained my averaging the horizontal velocity.
 **** horizontal scalar advection
 The transport of scalar quantities (e.g. buoyancy) is discretized in
 the flux form. 
-
 ***** flux form
 The (advective) buoyancy flux through the vertical faces of a dual
 control volume is approximated by the convex combination of two
 different discretizations. If $\gamma=0$ the transported buoyancy is
 reconstructed from the upwind dual control volume. If $\gamma=1$ the
 transported buoyancy is reconstructed using the average of the upwind
-and downwind dual control volumes.
+and downwind dual control volumes. In both cases the reconstruction of
+the buoyancy onto the edge of a scalar control volume is obtained by
+an interpolation scheme that is third-order accurate on a regular
+mesh. On a regular mesh the interpolation scheme can be interpreted as
+fourth-order accurate for $\gamma=1$.
 #+NAME: hsa-flux-form
 \begin{subequations}
 \begin{align*}
@@ -291,6 +329,47 @@ A_v\Big(\nabla \cdot \big(\boldsymbol{\Vec{u}}\boldsymbol{b}\big) \Big)_{v}
 &=\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \Bigg( \gamma \frac{F_\mathrm{vol}}{2} + (1-\gamma)\frac{F_\mathrm{vol} + \abs{F_\mathrm{vol}}}{2}\Bigg) b_\mathrm{tr}
 \end{align*}
 \end{subequations}
+A computationally less expensive discretization is obtained by
+replacing the reconstruction with a first-order accurate interpolation
+scheme.
+#+NAME: hsa-flux-form-low
+\begin{subequations}
+\begin{align*}
+F_\mathrm{vol} &= \ell_{\Hat{e}} \sum_{c\in C(e)} \Vec{n}_{\Tilde{v},e} \cdot \Vec{u}_c / 2\\
+db_{\mathrm{cen}} &= \frac{1}{\ell_e}\sum_{\hat{v}\in V(e)} \Vec{n}_{\Hat{v},e} \cdot \Vec{n}_{\Tilde{v},e} b_{\Hat{v}} \\
+b_{\mathrm{tr}} &= b_{\Tilde{v}} + \frac{\ell_e}{2} db_{\text{cen}}\\
+A_v\Big(\nabla \cdot \big(\boldsymbol{\Vec{u}}\boldsymbol{b}\big) \Big)_{v}
+&=\sum_{e\in E(v)} \sum_{\Tilde{v}\in V(e)} \Vec{n}_{v,e}\cdot \Vec{n}_{\Tilde{v},e} \frac{F_\mathrm{vol} + \abs{F_\mathrm{vol}}}{2} b_\mathrm{tr}\\
+\end{align*}
+\end{subequations}
+****** TODO Clarify as I calculated it to be only a 2nd-order accurate interpolation scheme
+**** horizontal viscosity
+A common simplification is to use the full velocity gradient instead
+of only its symmetric part to estimate the strain-rate tensor (see
+Griffies 2004 \cite{} for a discussion). The divergence of the
+horizontal velocity gradient is then approximated by first computing
+the vector gradient of the horizontal velocity field normal to the
+edges of the cell and then use the divergence theorem on the cell.
+\begin{equation*}
+\Big(\Vec{\Delta}\boldsymbol{\Vec{u}}\Big)_c = \frac{1}{A_c} \sum_{e\in E(c)} \ell_e \sum_{\Tilde{c}\in C(e)} \frac{-\Vec{n}_{e,c}\cdot \Vec{n}_{e,\Tilde{c}}}{\ell_{\Hat{e}}} \boldsymbol{\Vec{u}}_{\Tilde{c}}
+\end{equation*}
+The viscosity operator based on this approximation is called \textit{harmonic}.
+\begin{equation*}
+\mathrm{D^u_h} = \nu_h\Big(\Vec{\Delta}\boldsymbol{\Vec{u}}\Big)_c
+\end{equation*}
+The harmonic viscosity coefficient is commonly scaled by the first power in the lattice parameter.
+\begin{equation*}
+\nu_h = V \ell_e.
+\end{equation*}
+Applying the calculation twice yields the \textit{biharmonic}
+viscosity operator where the biharmonic viscoisty coefficient is
+scaled by the third power in the lattice parameter
+\begin{equation*}
+\mathrm{D^u_h} = -\nu_{\text{bh}}\Big(\Vec{\Delta}^2\boldsymbol{\Vec{u}}\Big)_c
+\end{equation*}
+\begin{equation*}
+\nu_h = V \ell_e^3.
+\end{equation*}
 *** system
 splitting into external and internal mode leads to inconsistencies but are reconciled (subcycling) vs. explicit-implicit methods
 
@@ -301,18 +380,25 @@ splitting into external and internal mode leads to inconsistencies but are recon
 \Bar{U} \mathcal{S}^{(\text{ad})}_{\theta_U} \boldsymbol{b'} + M^2 \mathcal{S}^{(\text{tr})}_{\theta_U}\boldsymbol{\Vec{u}'}
 \end{equation*}
 
+Using the previous abbreviation for the linearized discretizations of
+the horizontal momentum and scalar transport the system without
+vertical discretization is given by the following equations.
+
 #+NAME: eq:system-triB
 \begin{subequations}
 \begin{align}
-\frac{\partial\bsu}{\partial t} + \Bar{U} \mathcal{L}^{(x)}_{\theta_U}\Vec{\bsu} - \cos(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw - f_0 \bsv &= -\Vec{e_1} \cdot \nabla(\bsp + \bseta)\\
-\frac{\partial\bsv}{\partial t} + \Bar{U} \mathcal{L}^{(y)}_{\theta_U}\Vec{\bsu} + \sin(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw + f_0 \bsu &= -\Vec{e_2} \cdot \nabla(\bsp + \bseta)\\
+\frac{\partial\bsu}{\partial t} + \Bar{U} \mathcal{L}^{(x)}_{\theta_U}\Vec{\bsu} - \cos(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw - f_0 \bsv &= -\Vec{e_1} \cdot \Big(\nabla(\bsp + \bseta) + \mathrm{D^u_h}\bsu\Big)\\
+\frac{\partial\bsv}{\partial t} + \Bar{U} \mathcal{L}^{(y)}_{\theta_U}\Vec{\bsu} + \sin(\theta_U) \frac{M^2}{f_0}\mathrm{Av}\bsw + f_0 \bsu &= -\Vec{e_2} \cdot \Big(\nabla(\bsp + \bseta) + \mathrm{D^u_h}\bsu\Big)\\
 \partial_z \boldsymbol{p}' &= \boldsymbol{b}'\\
 \nabla\cdot \boldsymbol{\Vec{u}'} + \partial_z \boldsymbol{w'} &= 0\\
-\frac{\partial\bsb}{\partial t} + \Bar{U} \mathcal{S}^{(b)}_{\theta_U} \boldsymbol{b'} + M^2 \mathcal{S}^{(u)}_{\theta_U}\boldsymbol{\Vec{u}'}  + N^2 \bsw & = \boldsymbol{0}\\
-\frac{\partial\bseta}{\partial t} + \Bar{U}(z=H) \mathcal{S}^{(\text{ad})}_{\theta_U} \boldsymbol{\eta'}  &= \boldsymbol{w'}(z=H)
+\frac{\partial\bsb}{\partial t} + \Bar{U} \mathcal{S}^{(b)}_{\theta_U} \boldsymbol{b'} + M^2 \mathcal{S}^{(u)}_{\theta_U}\boldsymbol{\Vec{u}'}  + N^2 \bsw & = \mathrm{D^b_h}\bsb \\
+\frac{\partial\bseta}{\partial t} + \Bar{U}(z=0) \mathcal{S}^{(\text{ad})}_{\theta_U} \boldsymbol{\eta'} + \int_{-H}^0 \nabla\cdot \boldsymbol{\Vec{u}'} &= 0
 \end{align}
 \end{subequations}
-replace last term in surface elevation equation
+
+\begin{equation*}
+\boldsymbol{p}' = \int_0^z \bsb \mathrm{d}z - \frac{1}{H} \int_0^{-H} \bsb\mathrm{d}z
+\end{equation*}
 ** triangular C grid
 In a triangular C grid formulation the scalar quantities are located
 at the circumcenters of the respective triangles. The finite volume
@@ -320,28 +406,70 @@ interpretation of their values is the mean on the respective triangle
 (cell). The dual mesh is a Voronoi diagram where each vertex of the
 triangulation is the collocation point of a Voronoi cell (also called
 \textit{dual cell}). Only diagnostic quantities are evaluated at the
-collocation points of the dual mesh in the primitive model; in
-particular, the vorticity is computed on the Voronoi cells. The
-collocation points of the horizontal velocity components are staggered
-with respect to introduced collocation points and with respect to each
-other. They are located at the midpoints of the (primal) grid
-edges. The value of the horizontal velocity component on each such
-point is interpreted as the mean of the normal component of the
-horizontal velocity on the respective edge (with a given orientation).
+grid points of the dual mesh in the primitive model; in particular,
+the vorticity is computed on the Voronoi cells. The grid points
+of the horizontal velocity components are staggered with respect to
+introduced grid points and with respect to each other. They are
+located at the midpoints of the (primal) grid edges. The value of the
+horizontal velocity component on each such point is interpreted as the
+mean of the normal component of the horizontal velocity on the
+respective edge (with a given orientation).
 
-| Notation        | Interpretation on Tri-C                   |
-|-----------------+-------------------------------------------|
-| c               | cell                                      |
-| v               | dual control volume                       |
-| e               | face (edge) between control volumes       |
-| $\Vec{n}_{c,e}$ | normal to cell c at face e                |
-| $\Vec{n}_{v,e}$ | normal to dual control volume v at face e |
-| $\ell_e$        | area (length) of the face (edge) e        |
-| $E(c)$          | set of faces of cell c                    |
-| $E(v)$          | set of faces of dual control volume v     |
-| $C(e)$          | set of cells with face e                  |
-| $V(e)$          | set of dual control volumes with face e   |
-|-----------------+-------------------------------------------|
+| Notation        | Interpretation on Tri-C                       |
+|-----------------+-----------------------------------------------|
+| c               | cell                                          |
+| v               | dual control volume                           |
+| e               | face (edge) between control volumes           |
+| $\Vec{n}_{c,e}$ | normal to cell c at face e                    |
+| $\Vec{n}_{v,e}$ | normal to dual control volume v at face e     |
+| $\Vec{n}_{e}$   | orientation of the face (edge) e              |
+| $\Vec{t}_e$     | orientation of the dual face (edge) $\Hat{e}$ |
+| $\ell_e$        | area (length) of the face (edge) e            |
+| $E(c)$          | set of faces of cell c                        |
+| $E(v)$          | set of faces of dual control volume v         |
+| $C(e)$          | set of cells with face e                      |
+| $V(e)$          | set of dual control volumes with face e       |
+|-----------------+-----------------------------------------------|
+
+A horizontal discretization on a triangular grid with C-type
+staggering has been formulated by Korn in \cite{Korn} and is
+implemented in the ocean and atomosphere components of
+the\texttt{ICON} model \cite{?}. The discretization approach is based
+on a weak formulation of the equations of motion and the
+discretization schemes of the differential operators apply the
+\textit{mimetic approach}.
+
+Again, in the language of crystallography the collocation points of
+the dual cells form a hexagonal lattice. A primitive unit cell of the
+lattice contains two cell centers. In particular, the cell centers
+form two hexagonal lattices. Moreover, a primitive unit cell contains
+three edge centers that form three hexagonal lattices.
+
+\begin{figure}
+    \centering
+    \scalebox{0.5}{
+    \begin{tikzpicture}
+        \draw (0,0) -- (10,0);
+        \draw (0,0) -- (5,{sqrt(3)/2*10});
+        \draw (0,0) -- (5,{-sqrt(3)/2*10});
+        \draw (10,0) -- (5,{-sqrt(3)/2*10});
+        \draw (10,0) -- (5, {sqrt(3)/2*10});
+        \node[circle, color=red, fill=red, minimum size=20pt] (v1) at (0,0) {};
+        %\node[draw, circle, color=red, fill=red!10, minimum size=20pt] (v1u) at (5,{sqrt(3)/2*10}) {};
+        %\node[draw, circle, color=red, fill=red!10, minimum size=20pt] (v1d) at (10,0) {};
+        %\node[draw, circle, color=red, fill=red!10, minimum size=20pt] (v1r) at (5,{-sqrt(3)/2*10}) {};
+        \node[diamond, color=blue, fill=blue, aspect=1, minimum size=30pt] (c1) at (5,{1/(sqrt(3)*2)*10}) {};
+        \node[diamond, color=purple, fill=purple, aspect=1, minimum size=30pt] (c1) at (5,{-1/(sqrt(3)*2)*10}) {};
+        \node[rectangle, color=orange, fill=orange, minimum height=20pt, minimum width=20pt] (e2) at (2.5, {sqrt(3)/4*10}) {};
+        %\node[draw, rectangle, color=orange, fill=orange!10, minimum height=20pt, minimum width=20pt] (e2) at (7.5, {-sqrt(3)/4*10}) {};
+        \node[rectangle, color=green, fill=green, minimum height=20pt, minimum width=20pt] (e1) at (2.5, {-sqrt(3)/4*10}) {};
+        %\node[draw, rectangle, color=green, fill=green!10, minimum height=20pt, minimum width=20pt] (e1) at (7.5, {sqrt(3)/4*10}) {};
+        \node[rectangle, color=yellow, fill=yellow, minimum height=20pt, minimum width=20pt] (e3) at (5, 0) {};
+    \end{tikzpicture}
+}
+    \caption{Primitive unit cell of a hexagonal lattice. The red circle is the representative of the hexagonal lattice in the unit cell. The unit cell contains two triangle centers that form two hexagonal lattices represented by the blue and purple diamond respectively. Moreover, the unit cell contains three edge centers that form three hexagonal lattices which are represented by the orange, yellow, and green square respectively.}
+    \label{fig:placeholder}
+\end{figure}
 
 *** operators
 **** divergence
@@ -352,21 +480,29 @@ horizontal velocity on the respective edge (with a given orientation).
 **** curl
 \begin{equation*}
 \Big( \mathrm{Curl} \big(\boldsymbol{u}\big) \Big)_v
-= \frac{1}{A_v} \sum_{e\in E(v)} \ell_e \Vec{n}_{v,e} \cdot \Vec{t}_e u_e
+= \frac{1}{A_v} \sum_{e\in E(v)} -\ell_e \Vec{n}_{v,e} \cdot \Vec{t}_e u_e
 \end{equation*}
 **** gradient in edge direction
 \begin{equation*}
 \Big( \nabla \boldsymbol{p} \Big)_e
-= \frac{1}{d_e} \sum_{c\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_e p_c
+= \frac{1}{\ell_{\Hat{e}}} \sum_{c\in C(e)} -\Vec{n}_{c,e}\cdot\Vec{n}_e p_c
 \end{equation*}
 **** gradient in tangential direction
 \begin{equation*}
 \Big( \nabla^\perp \boldsymbol{\omega} \Big)_e = \frac{1}{\ell_e} \sum_{v\in V(e)} \Vec{n}_{v,e} \cdot \Vec{t}_e \omega_v
 \end{equation*}
 **** Perot reconstructions
+The Perot reconstructions satisfy the properties that $\mathcal{M}:=
+\mathcal{P}^\top\mathcal{P}$ is positive-definite and
+$\Tilde{\mathcal{M}}:= \Tilde{\mathcal{P}}^\dagger\Tilde{\mathcal{P}}$
+is skew-symmetric\cite{Korn}. For a given orientation of the primal,
+$e$, and dual edge, $\Hat{e}$, respectively the Perot operators
+$\mathcal{P}^\top$ and $\Tilde{\mathcal{P}}^\dagger$ applied to a
+vector field yield the fluxes of the vector field and its
+$90^\circ$-rotation through the primal and dual edge respectively.
 \begin{equation*}
 \Big( \mathrm{P} \boldsymbol{u} \Big)_c
-= \frac{1}{A_v} \sum_{e\in E(c)} \frac{\ell_e d_e}{2} \Vec{n}_e u_e
+= \frac{1}{A_c} \sum_{e\in E(c)} \frac{\ell_e \ell_{\Hat{e}}}{2} \Vec{n}_{c,e}\cdot\Vec{n}_e \Vec{n}_{c,e} u_e
 \end{equation*}
 \begin{equation*}
 \Big( \mathrm{P}^\top \boldsymbol{\Vec{F}} \Big)_e
@@ -374,13 +510,20 @@ horizontal velocity on the respective edge (with a given orientation).
 \end{equation*}
 \begin{equation*}
 \Big( \Tilde{\mathrm{P}} \boldsymbol{u} \Big)_v
-= \frac{1}{A_c} \sum_{e\in E(v)} \frac{\ell_e d_e}{2} \Vec{n}_e u_e
+= \frac{1}{A_c} \sum_{e\in E(v)} \frac{\ell_e \ell_{\Hat{e}}}{2} \Vec{n}_{e,v}^\bot\cdot \Vec{n}_e \Vec{n}_{e,v}^\bot u_e
 \end{equation*}
 \begin{equation*}
 \Big( \Tilde{\mathrm{P}}^\dagger \boldsymbol{\Vec{G}}\Big)_e
-= \frac{1}{2} \sum_{v\in V(e)} \Vec{t}_e \cdot \Vec{G}_e
+= \frac{1}{2} \sum_{v\in V(e)} -\Vec{t}_e \cdot \Vec{G}_e
 \end{equation*}
 **** horizontal momentum advection
+The discretization scheme of the horizontal momentum transport is
+based on the vector-invariant formulation. The kinetic energy is
+computed on cells after an application of the Perot
+reconstruction. The flux of the the velocity field rotated by its curl
+is approximated by multiplying the curl on dual cells with the Perot
+reconstructed velocity field and then apply the Perot operator
+$\Tilde{\mathcal{P}}^\dagger$.
 \begin{subequations}
 \begin{align*}
 \boldsymbol{\mathrm{KE}} &= \mathrm{P}\boldsymbol{u} \cdot \mathrm{P}\boldsymbol{u}\\
@@ -389,12 +532,12 @@ horizontal velocity on the respective edge (with a given orientation).
 &= \Tilde{\mathcal{M}}\big[\boldsymbol{u}, \boldsymbol{\omega}\big] + \mathcal{M} \nabla \boldsymbol{\mathrm{KE}}
 \end{align*}
 \end{subequations}
-***** TODO implement reconstruction scheme for transport of horizontal momentum
 **** horizontal scalar advection
 \begin{equation*}
 \nabla \cdot \big(\boldsymbol{u}\boldsymbol{b}\big)
 = \nabla\cdot \mathcal{M}\big[\boldsymbol{u}, \boldsymbol{b}\big]
 \end{equation*}
+**** TODO Explain handling of mass matrix
 ** hexagonal C grid
 *** operators
 **** divergence
@@ -445,6 +588,64 @@ horizontal velocity on the respective edge (with a given orientation).
 **** divergence
 **** gradient
 **** curl
+** Implementation
+The influence of the horizontal discretization of the equations of
+motion on the most unstable modes in a baroclinically unstable flow is
+analyzed following the framework of \cite{Barham2018} and summarized
+here.  For each of the introduced discretizations the system is
+linearized at the baroclinically unstable flow first analyzed by
+\cite{Eady} and here projected onto the respective discrete spaces. In analogy
+to the continuous system, the linearized discrete systems has constant
+coefficients on horizontal planes. The application of a discrete
+Fourier transform on each horizontal plane yields an equivalent system
+formulated in wavenumber space. Since the system had constant
+coefficients on horizontal planes the equations for different
+wavevectors are decoupled. Eliminating the vertical velocity and
+pressure fields by the use of the continuity equation and hydrostatic
+balance equation, for each wavenumber the system is reduced to a
+linear ordinary differential equation. The reduced system allows for
+an instability analysis based on the corresponding eigenvalue problem.
+
+In this study the implementation of the analysis has been automized by
+the use of symbolic computations in the \textit{Julia} programming
+language. First the discrete system is assembled for the
+baroclinically unstable flow projected onto the respective discrete
+spaces and perturbed by symbolic flow fields of order $\epsilon$. The
+linearized system is the first order system obtained by (Taylor)
+expanding the equations in $\epsilon$. For each wavevector the fields
+in the pertubation flow are substituted by plane wave fields of the
+given wavevector. The amplitudes form the state variables of the
+resulting Fourier transformed system at the given wavevector. The
+system of differential equations for the amplitudes at given
+wavevector is obtained by factoring out the phase of the respective
+prognostic field variable (i.e. equivalently, evaluate the equations at
+the origin of the respective prognostic field variable).
+
+Note that the dimension of the state on triangular grids is higher than the
+respective state on a quadrilateral grid except for A-grid type of
+staggering. On a triangular grid with B-type staggering the horizontal
+velocity needs four amplitudes instead of two on a quadrilateral
+grid. For B-type staggering the horizontal velocity is determined by
+three amplitudes instead of two and the scalar quantities each require
+two amplitudes instead of one. On a hexagonal grid with B-type
+staggering the horizontal velocity is determined by three amplitudes
+instead of two on a quadrilateral grid but the scalar quantities also
+need only one amplitude each.
+
+#+CAPTION: Number of amplitudes to determine the horizontal velocity field in wavenumber space (in a horizontal plane)
+| Staggering         | A | B | C |
+|--------------------+---+---+---|
+| quadrilateral mesh | 2 | 2 | 2 |
+| triangular mesh    | 2 | 4 | 3 |
+
+#+CAPTION: Number of amplitudes to determine a scalar quantity field in wavenumber space (in a horizontal plane)
+| Staggering         | A | B | C |
+|--------------------+---+---+---|
+| quadrilateral mesh | 1 | 1 | 1 |
+| triangular mesh    | 1 | 1 | 2 |
+
+
+
 ** old comments
 
 
@@ -512,14 +713,18 @@ applications, additional factors such as advection of scalars and
 momentum and vertical discretization come into play. The quadrilateral
 A, B and C grids are similar concerning reconstruction of the
 quantities to be advected, since staggering does not interfere with
-such reconstructions. However, staggering introduces horizontal
-averaging of vertical velocity in the vertical advection of
-momentum. There is less averaging on C grids than on B grids, but it
-is fully absent on collocated (A) grids. All grids need horizontal
-averaging of the horizontal advecting velocity for momentum, but A and
-B grids need it also for scalars. In the vertical direction, ocean
-circulation models traditionally use the so called Lorenz staggering
-(see discussion in \cite{BellWhite2017}) independent of the horizontal
+such reconstructions.
+@@comment: direction of averaging differs though@@
+However, staggering introduces horizontal averaging of
+vertical velocity in the vertical advection of momentum. There is less
+averaging on C grids than on B grids, but it is fully absent on
+collocated (A) grids. All grids need horizontal averaging of the
+horizontal advecting velocity for momentum, but A and B grids need it
+also for scalars.
+@@comment: this is only a statement about the flux form, or?@@
+In the vertical direction, ocean circulation models
+traditionally use the so called Lorenz staggering (see discussion in
+\cite{BellWhite2017}) independent of the horizontal
 discretization. This vertical staggering is known to lead to spurious
 instability of computational kind (\cite{BellWhite2017},
 \cite{Menesguen2025}) if the vertical resolution is too fine compared
@@ -570,12 +775,24 @@ meshes, which we also explored for comparison.
 
 ** Remarks on Quadrilateral Grids
 *** Alignment of Basic Flow with the Mesh
+#+BEGIN_COMMENT
+The background flow is aligned with the zonal coordinate of the
+coordinate system. The alginment between the background flow and the
+lattices of the mesh is, therefore, the alignment between the
+coordinate system and the lattices of the mesh. However, due to the
+invariance of the discretization (convolution operators on the
+lattice), it is equivalent to analyze the alignment of the background
+flow with the coordinate system instead and fix the alignment between
+the coordinate sytem and the lattices of the mesh.
+#+END_COMMENT
+
 First, the analysis of \cite{Barham2018} assumes that the basic flow
 is aligned with the mesh. The other limiting case is the flow directed
 along the mesh diagonal. We found that this case the accuracy is even
 slightly improved, so that the results of \cite{Barham2018} hold for
 arbitrary orientation of the flow and the mesh.
 **** TODO Create a plot to illustrate this
+**** TODO Ask Sergey about the suitability of the comment
 *** Accuracy of Pressure Gradients and Vertical Velocity
 Second, the discrete linearized equations written down in
 \cite{Barham2018} for B and C grids show that on the symmetric axis
@@ -633,6 +850,9 @@ In contrast to the quadrilateral meshes, the
 symmetric axis is also affected, and there is strong sensitivity of
 the spurious part to the direction of the flow with respect to the
 mesh.
+#+CAPTION: The figures illustrates that the highest growth rate of an instability on the symmetric axis depends on the alignment of the flow with the mesh. In the upper axis the flow is aligned with ...
+#+NAME: fig:ali-sym
+[[../plots/ali-sym.png]]
 *** Violation of Galilean Invariance
 Additionally, spurious instabilities violate Galilean
 invariance, being sensitive to the addition of a uniform flow to the
@@ -650,6 +870,7 @@ eigenvalues do not describe physical advection. Uncovering how the
 spurious modes of these staggered discretizations induce spurious
 branches of baroclinic and symmetric instabilities might be worth of
 attention, but is beyond the scope of the present work.
+[[../plots/gal-bar.png]]
 *** Damping of Spurious Instabilities on the Baroclinic Axis
 In each case a relatively moderate dissipation is generally sufficient
 to suppress the instability on the baroclinic axis. The dissipation
@@ -661,7 +882,9 @@ relatively moderate values of $V_0$ ($V_0<0.01$ m/s, except for very
 coarse meshes), but even these values may already affect the accuracy
 of maximum instability increment or the range of wavenumbers where
 physical instability is observed.
-**** TODO Create a plot for illustration
+[[../plots/dis-bar.png]]
+**** DONE Create a plot for illustration
+**** DONE Implement biharmonic viscosity
 *** Damping of Spurious Instabilities on the Symmetric Axis
 On the symmetric axis, the spurious part is often attached to the
 physical part, and it is difficult to see where the physical branch
@@ -672,7 +895,8 @@ parts, but it is delayed to future studies. The actual dissipation
 needed to suppress spurious symmetric instabilities remains depends on
 this analysis, but in any case, the situation is less promising than
 the one on the quadrilateral meshes.
-**** TODO Create a plot for illustration
+[[../plots/dis-sym.png]]
+**** DONE Create a plot for illustration
 *** Triangular A Grids
 Unexpectedly, among the discretizations explored here the collocated
 triangular A grid shows the least problematic performance compared to
@@ -728,7 +952,7 @@ include this factor. We therefore avoid using $L_d$, and take the
 scale of the maximum of baroclinic instability in the
 consideration. It corresponds to $k^*\approx4\times10^{-5}$ 1/m, which
 gives $k^*a$=1 for $a$=25 km. In this case, $\lambda^*/a=2\pi$, while
-$\ lambda/a=2$ corresponds to the spectral cutoff. Here $\lambda$
+$\lambda/a=2$ corresponds to the spectral cutoff. Here $\lambda$
 denotes the wavelength. This is a relatively coarse mesh, as the scale
 of maximum instability is only about 3 cutoff wavelengths, which is
 formally eddy permitting. On the quadrilateral B grid, the growth rate
@@ -852,7 +1076,7 @@ advection in the buoyancy equation is not really revealing.
 Use the flow speed at the top of the surface
 i.e. $\Bar{U}(z=H) = M^2 H/2$ and flow direction not aligned with the x-axis.
 
-*** NEXT Create plot with different average flow speeds
+*** DONE Create plot with different average flow speeds
 The flow speeds should be of order $M^2 H/2$ and the flow direction
 not aligned with the x-axis.
 *** NEXT Investigate loss of accuracy in viscosity/diffusion operators
