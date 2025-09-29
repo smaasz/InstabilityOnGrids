@@ -24,15 +24,17 @@ begin
 	using CairoMakie
 	using DataFrames
 	import DrWatson: produce_or_load, @unpack, @dict, @strdict
-	import GridOperatorAnalysis: eady_jacobian, eady_jacobian_wo_mtk, bb
+	import GridOperatorAnalysis: bb, eady_jacobian#, eady_jacobian_wo_mtk, 
 	import GridOperatorAnalysis
 	using HypertextLiteral: @htl, @html_str
+	using LaTeXStrings
 	import LinearAlgebra: eigen, norm
 	using PlutoUI
 	using RuntimeGeneratedFunctions
 	import Symbolics: substitute
 	import Symbolics
 	import SymbolicUtils
+	using Unicode
 	using UUIDs: uuid1
 end;
 
@@ -123,6 +125,68 @@ function select_hst_scheme(grid_t)
 	PlutoUI.Select(schemes)
 end
 
+# ╔═╡ 0389932f-20e8-4346-95a2-051249ac3025
+WideCell(
+md"""
+__Horizontal momentum transport balance__:
+	
+   $(@bind test1 Select([:a => "∂ₜ(evalat(vout, vin, u⃗[iTH]))"])) 
+\+ $(@bind test2 Select([:a => "TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", :b => "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"]))
+\+ $(@bind test2 Select([:a => "f₀ * evalat(vout, vin, u⃗⊥[iTH])"]))
+\+ $(@bind test4 Select([:a => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))"]))
+\+ $(@bind test5 Select([:a => "TriA.∇vv(vout, vin, p)[iTH]",     :b => "evalat(vout, vin, ∇p[iTH])"]))
+\+ $(@bind test6 Select([:a => "g * TriA.∇vv(vout, vin, η)[iTH]", :b => "g * evalat(vout, vin, ∇η[iTH])"]))
+\+ $(@bind test7 Select([:a => "-Dᵘₕ[iTH]", :b => "evalat(vout, vin, Δ⃗u⃗[iTH])"]))
+= 0
+"""
+; max_width=1500)
+
+# ╔═╡ bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
+WideCell(
+md"""
+__Buoyancy transport balance__:
+	
+   $(@bind b1 Select([:a => "∂ₜ(evalat(vout, vin, b))"])) 
+\+ $(@bind b2 Select([:a => "TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", :b => "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"]))
+\+ $(@bind b3 Select([:a => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"]))
+\+ $(@bind b4 Select([:a => "-Dᵇₕ", :b => "evalat(vout, vin, Δb)"]))
+= 0
+"""
+; max_width=1500)
+
+# ╔═╡ cffd4061-d02d-4e42-bbca-cc990927824b
+WideCell(
+md"""
+__Surface elevation equation__:
+	
+   $(@bind η1 Select([:a => "∂ₜ(evalat(vout, vin, η))"])) 
+\+ $(@bind η2 Select([:a => "evalat(vout, vin, ∫∇ᵀu⃗dz)"]))
+= 0
+"""
+; max_width=1500)
+
+# ╔═╡ c690b0a4-6130-4320-869f-2764fb681f3f
+WideCell(
+md"""
+__Continuity Equation__:
+	
+   $(@bind c1 Select([:a => "TriA.∇ᵀvv(vout, vin, u⃗)", :b => "evalat(vout, vin, ∇ᵀu⃗)"])) 
+\+ $(@bind c2 Select([:a => "∂₃(evalat(vout, vin, w))"]))
+= 0
+"""
+; max_width=1500)
+
+# ╔═╡ b4024a03-2a30-4756-aebe-3f2e776cd8d6
+WideCell(
+md"""
+__Hydrostatic Balance__:
+	
+   $(@bind p1 Select([:a => "∂₃(evalat(vout, vin, p))"])) 
+\+ $(@bind p2 Select([:a => "-evalat(vout, vin, b)"]))
+= 0
+"""
+; max_width=1500)
+
 # ╔═╡ 42b320c0-d9a3-4a84-bcc6-3498d71ceec8
 md"""
 __Discretization scheme for the momentum transport__: 
@@ -172,6 +236,18 @@ end;
 
 # ╔═╡ 1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 Symbolics.@variables _Ri _le _g _f₀ _N² _𝕂ᵘ _𝕂ᵇ _θU _β k l
+
+# ╔═╡ 0ad8eba1-f992-4f24-aa90-38ca629f8c72
+ϕ = let
+	ϕ = GridOperatorAnalysis.compute_phases(k, l, _le)
+	#for (k, v) in pairs(ϕ)
+	#	newv = Symbolics.simplify.(v; rewriter=rtrig)
+	#	newv = Symbolics.expand.(newv)
+	#	newv = Symbolics.substitute.(newv, Ref(sqrt3subs))
+	#	ϕ[k] = Symbolics.simplify.(newv)
+	#end
+	ϕ
+end;
 
 # ╔═╡ 3588e3e2-193d-4c1c-9dbf-c046803cface
 rtrig = let
@@ -323,11 +399,89 @@ Vᵘ: $(@bind Vᵘ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
 Vᵇ: $(@bind Vᵇ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
 """)
 
+# ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
+jac = let
+	#jac = eady_jacobian_wo_mtk(Val(grid_t), _le; g, f₀, N², Ri=_Ri, Nz=32, 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, θU=θU, β=β, hmt_scheme, hst_scheme, dissip_scheme)
+	@showtime jac = GridOperatorAnalysis.eady_jacobian(Val(grid_t), k, l, _le; ϕ, g=_g, f₀=_f₀, Ri=_Ri, N²=_N², 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, Nz=16, θU, β, hmt_scheme, hst_scheme, dissip_scheme)
+	#jac = substitute.(jac, Ref(Dict(_g => g, _f₀ => f₀, _N² => N²)))
+	#@showtime jac = Symbolics.expand.(jac)
+	#@showtime Symbolics.simplify_fractions.(jac)
+	#@showtime jac = Symbolics.simplify.(jac; rewriter=rtrig)
+	#@showtime jac = substitute.(jac, Ref(sqrt3subs))
+	#@showtime jac = Symbolics.simplify_fractions.(jac)	
+end;
+
+# ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
+fun = let
+	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, _Ri, _le, _f₀, _g, _N², _𝕂ᵘ, _𝕂ᵇ; expression=Val{false})
+end;
+
+# ╔═╡ ab60e360-e826-496d-b382-e868f640d85c
+Ks, iωs = let
+	θ = (Ri > 1 ? 0 : π/2) + θU
+    Kmax = min(1e-2, 2/√3*π/le)
+	#min(1e-2, π/le * 2 / norm(inv([1;0;;0.5;√3/2]) * [cos(mod(θ, π/3)); sin(mod(θ, π/3))], 1))
+	if dissip_scheme == :biharmonic
+		𝕂ᵘ = Vᵘ * le^3
+		𝕂ᵇ = Vᵇ * le^3
+	else
+		𝕂ᵘ = Vᵘ * le
+		𝕂ᵇ = Vᵇ * le
+	end
+    Ks  = range(1e-10, Kmax, 400)
+    iωs = Complex{Float64}[]
+    for K in Ks
+        k = K * cos(θ)
+		l = K * sin(θ)
+
+		#jac = [ComplexF64(eady_jac[i,j](k, l, le, Ri, N², g, f₀, 𝕂ᵘ, 𝕂ᵇ, θU, β)) for i=1:size(eady_jac,1), j=1:size(eady_jac,2)]
+		jac = [-Symbolics.unwrap(fun[i,j](k,l, Ri, le, f₀, g, N², 𝕂ᵘ, 𝕂ᵇ)) for i=1:size(fun,1), j=1:size(fun,2)]
+
+        vals, vecs = eigen(jac)
+        push!(iωs, vals[end])
+    end
+	(Ks, iωs)
+end
+
+# ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
+let
+	size   = Ri > 1 ? (1400, 700) : (1400, 500)
+	θ = (Ri > 1 ? 0 : π/2) + θU
+	fₛ     = min(1e-2, 2/√3*π/le)
+	xticks = if Ri > 1
+		xs = collect(0.0:1/8:1.1)
+    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
+    	(xs, ls)
+	else
+		xs = collect(0.0:1/4:1.1)
+    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
+		(xs, ls)
+	end
+	aspect = Ri > 1 ? 1.5 : 2.5
+	limits = Ri > 1 ? (0.0, 1.1, -0.1, 0.4) : (0.0, 1.1, -0.1, 1.0)
+	M²     = √(N² * f₀^2 / Ri)
+	
+	f = Figure(; size, fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / fₛ",
+			 ylabel = "growth rate / N M⁻²",
+			 xticks,
+			 aspect,
+			 limits,
+			 )
+	lines!(ax, Ks./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
+	axislegend()
+	#f[1,2] = Legend(f, ax; merge=true, valign=:top);
+	#colsize!(f.layout, 1, Aspect(1, aspect))
+	f
+end
+
 # ╔═╡ 69f7116f-5062-43b3-a004-acd5de35ed1e
 let
 	Ri     = 100
 	size   = Ri > 1 ? (1500, 550) : (1400, 500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -364,7 +518,8 @@ end
 let
 	Ri     = 100
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -401,7 +556,7 @@ end
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -438,7 +593,7 @@ end
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -475,7 +630,8 @@ end
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -515,7 +671,8 @@ end
 let
 	Ri = 100
 	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	fₛ     = min(1e-2, 2/√3*π/le)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -551,107 +708,7 @@ let
 	f
 end
 
-# ╔═╡ abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
-sqrt3subs = Dict(
-	GridOperatorAnalysis.sqrt3^2=>3, GridOperatorAnalysis.sqrt3^3=>3*GridOperatorAnalysis.sqrt3, GridOperatorAnalysis.sqrt3^4=>9, GridOperatorAnalysis.sqrt3^5=>9*GridOperatorAnalysis.sqrt3, GridOperatorAnalysis.sqrt3^6=>27,
-	GridOperatorAnalysis.sqrt3^7=>27*GridOperatorAnalysis.sqrt3,
-	GridOperatorAnalysis.sqrt3^8=>81,
-);
-
-# ╔═╡ 0ad8eba1-f992-4f24-aa90-38ca629f8c72
-ϕ = let
-	ϕ = GridOperatorAnalysis.compute_phases(k, l, _le)
-	for (k, v) in pairs(ϕ)
-		newv = Symbolics.simplify.(v; rewriter=rtrig)
-		newv = Symbolics.expand.(newv)
-		newv = Symbolics.substitute.(newv, Ref(sqrt3subs))
-		ϕ[k] = Symbolics.simplify.(newv)
-	end
-	ϕ
-end;
-
-# ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
-jac = let
-	#jac = eady_jacobian_wo_mtk(Val(grid_t), _le; g, f₀, N², Ri=_Ri, Nz=32, 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, θU=θU, β=β, hmt_scheme, hst_scheme, dissip_scheme)
-	@showtime jac = GridOperatorAnalysis.eady_jacobian(Val(grid_t), k, l, _le; ϕ, g=_g, f₀=_f₀, Ri=_Ri, N²=_N², 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, Nz=64, θU, β, hmt_scheme, hst_scheme, dissip_scheme)
-	#jac = substitute.(jac, Ref(Dict(_g => g, _f₀ => f₀, _N² => N²)))
-	#@showtime jac = Symbolics.expand.(jac)
-	#@showtime Symbolics.simplify_fractions.(jac)
-	#@showtime jac = Symbolics.simplify.(jac; rewriter=rtrig)
-	#@showtime jac = substitute.(jac, Ref(sqrt3subs))
-	#@showtime jac = Symbolics.simplify_fractions.(jac)	
-end;
-
-# ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
-fun = let
-	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, _Ri, _le, _f₀, _g, _N², _𝕂ᵘ, _𝕂ᵇ; expression=Val{false})
-end;
-
-# ╔═╡ ab60e360-e826-496d-b382-e868f640d85c
-# ╠═╡ disabled = true
-#=╠═╡
-Ks, iωs = let
-	θ = (Ri > 1 ? 0 : π/2) + θU
-    Kmax = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
-	if dissip_scheme == :biharmonic
-		𝕂ᵘ = Vᵘ * le^3
-		𝕂ᵇ = Vᵇ * le^3
-	else
-		𝕂ᵘ = Vᵘ * le
-		𝕂ᵇ = Vᵇ * le
-	end
-    Ks  = range(1e-10, Kmax, 400)
-    iωs = Complex{Float64}[]
-    for K in Ks
-        k = K * cos(θ)
-		l = K * sin(θ)
-
-		#jac = [ComplexF64(eady_jac[i,j](k, l, le, Ri, N², g, f₀, 𝕂ᵘ, 𝕂ᵇ, θU, β)) for i=1:size(eady_jac,1), j=1:size(eady_jac,2)]
-		jac = [-Symbolics.unwrap(fun[i,j](k,l, Ri, le, f₀, g, N², 𝕂ᵘ, 𝕂ᵇ)) for i=1:size(fun,1), j=1:size(fun,2)]
-
-        vals, vecs = eigen(jac)
-        push!(iωs, vals[end])
-    end
-	(Ks, iωs)
-end
-  ╠═╡ =#
-
-# ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
-#=╠═╡
-let
-	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
-	xticks = if Ri > 1
-		xs = collect(0.0:1/8:1.1)
-    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
-    	(xs, ls)
-	else
-		xs = collect(0.0:1/4:1.1)
-    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
-		(xs, ls)
-	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1.1, -0.1, 0.4) : (0.0, 1.1, -0.1, 1.0)
-	M²     = √(N² * f₀^2 / Ri)
-	
-	f = Figure(; size, fontsize=36)
-	ax = Axis(f[1,1];
-			 xlabel = "wavenumber / fₛ",
-			 ylabel = "growth rate / N M⁻²",
-			 xticks,
-			 aspect,
-			 limits,
-			 )
-	lines!(ax, Ks ./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
-	axislegend()
-	#f[1,2] = Legend(f, ax; merge=true, valign=:top);
-	#colsize!(f.layout, 1, Aspect(1, aspect))
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
-#=╠═╡
 let
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
 	fₛ     = Ks[end]
@@ -686,7 +743,34 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
-  ╠═╡ =#
+
+# ╔═╡ abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
+sqrt3subs = Dict(
+	GridOperatorAnalysis.sqrt3^2=>3, GridOperatorAnalysis.sqrt3^3=>3*GridOperatorAnalysis.sqrt3, GridOperatorAnalysis.sqrt3^4=>9, GridOperatorAnalysis.sqrt3^5=>9*GridOperatorAnalysis.sqrt3, GridOperatorAnalysis.sqrt3^6=>27,
+	GridOperatorAnalysis.sqrt3^7=>27*GridOperatorAnalysis.sqrt3,
+	GridOperatorAnalysis.sqrt3^8=>81,
+);
+
+# ╔═╡ c9ac2630-ea0e-4048-a161-8c9f925d1d20
+let
+	mdt = md"""
+```math
+[∂ₜ(evalat(vout, vin, u⃗[iTH])), hmt(vout, vin, u⃗, u⃗)[iTH], f₀ * evalat(vout, vin, u⃗⊥[iTH]), evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH])), TriA.∇vv(vout, vin, p)[iTH], g * TriA.∇vv(vout, vin, η)[iTH], -Dᵘₕ[iTH]]
+```
+"""
+	for (i,c) in enumerate(mdt.content)
+		if typeof(c) == Markdown.LaTeX
+			c.formula = replace(c.formula, r"(.)⃗"=>s"\\vec{\1}")
+			c.formula = replace(c.formula, r"vout"=>s"v_{\\text{out}}")
+			c.formula = replace(c.formula, r"vin"=>s"v_{\\text{in}}")
+			c.formula = replace(c.formula, r"iTH"=>s"i_{\\text{TH}}")
+			c.formula = replace(c.formula, r"evalat"=>s"\\mathrm{evalat}")
+			c.formula = replace(c.formula, r"hmt"=>s"\\mathrm{hmt}")
+			c.formula = replace(c.formula, r"\*"=>s"\\cdot")
+		end
+	end
+	mdt
+end
 
 # ╔═╡ Cell order:
 # ╠═500f352c-6e16-11f0-215d-4f5a3075cb33
@@ -698,6 +782,11 @@ end
 # ╟─a6e1eda0-c7b6-46be-b435-b999d08d83ba
 # ╟─6e5eb153-8d92-47f9-bee5-8f823abd11e9
 # ╟─826aa7f7-c0f1-4dd4-978f-dc093f970d84
+# ╟─0389932f-20e8-4346-95a2-051249ac3025
+# ╟─bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
+# ╟─cffd4061-d02d-4e42-bbca-cc990927824b
+# ╟─c690b0a4-6130-4320-869f-2764fb681f3f
+# ╟─b4024a03-2a30-4756-aebe-3f2e776cd8d6
 # ╟─42b320c0-d9a3-4a84-bcc6-3498d71ceec8
 # ╟─07e1fa2c-7ef0-4a22-9c75-6640a626fe2c
 # ╟─694e01ee-5b10-44e4-a477-e8593ededa8c
@@ -710,16 +799,16 @@ end
 # ╠═ab60e360-e826-496d-b382-e868f640d85c
 # ╠═1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 # ╠═0ad8eba1-f992-4f24-aa90-38ca629f8c72
-# ╠═3588e3e2-193d-4c1c-9dbf-c046803cface
+# ╟─3588e3e2-193d-4c1c-9dbf-c046803cface
 # ╠═9bc2c550-4008-42fc-9ac0-607d49f8f319
 # ╠═c6332760-298c-42f0-ba13-0936cab3fdcd
 # ╟─e3bc1fcc-fb96-404f-8204-675174b3afe1
-# ╠═b15d7752-cf88-4e49-95c2-69935c08f448
+# ╟─b15d7752-cf88-4e49-95c2-69935c08f448
 # ╠═be945a73-9afb-4b9a-ac78-4514fbb0e33e
 # ╠═70f46342-4b5c-45ce-9bf9-13a44fd780fc
 # ╟─3adadede-5704-441f-9756-08f0f820c723
 # ╟─2bfe2cd8-cf70-4efa-a0d2-5a3fe447e9e8
-# ╠═69f7116f-5062-43b3-a004-acd5de35ed1e
+# ╟─69f7116f-5062-43b3-a004-acd5de35ed1e
 # ╟─a371a682-d689-4147-8c8f-49a65a29cd8e
 # ╟─953ca291-388d-4689-a891-fcdd62b659f7
 # ╟─ffc466bf-7d98-4de1-9c12-0e8e2d559ed5
@@ -736,3 +825,4 @@ end
 # ╟─6e93f103-3988-4a68-8804-eabc14f12f5d
 # ╟─5d57177f-c6c5-496f-942f-755b25fa957d
 # ╠═abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
+# ╟─c9ac2630-ea0e-4048-a161-8c9f925d1d20
