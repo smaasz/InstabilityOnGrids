@@ -125,65 +125,163 @@ function select_hst_scheme(grid_t)
 	PlutoUI.Select(schemes)
 end
 
-# ╔═╡ 0389932f-20e8-4346-95a2-051249ac3025
-WideCell(
-md"""
-__Horizontal momentum transport balance__:
-	
-   $(@bind test1 Select([:a => "∂ₜ(evalat(vout, vin, u⃗[iTH]))"])) 
-\+ $(@bind test2 Select([:a => "TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", :b => "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"]))
-\+ $(@bind test2 Select([:a => "f₀ * evalat(vout, vin, u⃗⊥[iTH])"]))
-\+ $(@bind test4 Select([:a => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))"]))
-\+ $(@bind test5 Select([:a => "TriA.∇vv(vout, vin, p)[iTH]",     :b => "evalat(vout, vin, ∇p[iTH])"]))
-\+ $(@bind test6 Select([:a => "g * TriA.∇vv(vout, vin, η)[iTH]", :b => "g * evalat(vout, vin, ∇η[iTH])"]))
-\+ $(@bind test7 Select([:a => "-Dᵘₕ[iTH]", :b => "evalat(vout, vin, Δ⃗u⃗[iTH])"]))
-= 0
-"""
-; max_width=1500)
+# ╔═╡ b1a33624-23c1-4102-85b7-1e63980f3bf2
+function EqSchemes(schemes)
+	PlutoUI.combine() do Child
+	@htl("""
+	$([
+		@htl("$(Child(string(i), Select(s))) +")	
+		for (i, s) in enumerate(schemes[1:end-1])
+	 ])
+	$(Child(string(length(schemes)), Select(schemes[end]))) = 0 
+	""")
+	end
+end
+
+# ╔═╡ 29bef65a-0414-4304-a718-189b6885d2e3
+schemes = Dict(
+	:TriA => [
+		["∂ₜ(evalat(vout, vin, u⃗[iTH]))"],
+		["TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
+		["f₀ * evalat(vout, vin, u⃗⊥[iTH])"],
+		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))"],
+		["TriA.∇vv(vout, vin, p)[iTH]", "evalat(vout, vin, ∇p[iTH])"],
+		["g * TriA.∇vv(vout, vin, η)[iTH]", "g * evalat(vout, vin, ∇η[iTH])"],
+		["evalat(vout, vin, Δu⃗[iTH])", "evalat(vout, vin, Δ²u⃗)", "TriA.Δ(vout, vin, u⃗[iTH])", "TriA.Δ(vout, v, TriA.Δ(v, vin, u⃗[iTH]))"],
+	],
+	:TriB => [
+		["∂ₜ(evalat(cout, cin, u⃗[iTH]))"],
+		["TriB.u⃗ᵀ∇_asc(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_avi(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_fdv(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_fdcre(cout, cin, u⃗, u⃗)[iTH]", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
+		["f₀ * evalat(cout, cin, u⃗⊥[iTH])"],
+		["TriB.av_cv(cout, vin, w) * ∂₃(evalat(cout, cin, u⃗[iTH]))", "evalat(cout, cin, w̄) * ∂₃(evalat(cout, cin, u⃗[iTH]))"],
+		["TriB.∇cv(cout, vin, p)[iTH]", "evalat(cout, vin, ∇p[iTH])"],
+		["g * TriB.∇cv(cout, vin, η)[iTH]", "g * evalat(cout, vin, ∇η[iTH])"],
+		["evalat(cout, cin, Δu⃗[iTH])", "evalat(cout, cin, Δ²u⃗)", "TriB.Δ⃗(cout, cin, u⃗)[iTH]", "TriB.Δ⃗(cout, c, TriB.Δ⃗(c, cin, u⃗))[iTH]"],
+	],
+	:TriC => [
+		["∂ₜ(evalat(eout, ein, u⃗))"],
+		["TriC.u⃗∇(eout, ein, u⃗, u⃗)"],
+		["TriC.ℳ̃(eout, ein, v, u⃗, f₀)"],
+		["TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", "evalat(eout, ein, w̄) * ∂₃(evalat(eout, ein, ū))"],
+		["TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))"],
+		["g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))"],
+		["-TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", "TriC.Δ(cout, cin, b)"],
+	]
+)
+
+# ╔═╡ 51d642b5-b044-4c2a-b7e0-aab048231544
+WideCell(md"""
+##### Horizontal Momentum Transport Equation
+$(@bind v EqSchemes(schemes[grid_t]))
+"""; max_width=1500)
+
+# ╔═╡ 43dd7530-acd3-46f4-98a7-6df6bf171ceb
+let
+	a = "1+1"
+	a = Meta.parse(a)
+	@eval $a
+end
+
+# ╔═╡ 92853482-fd36-4fe1-b515-9c7696b71c95
+bschemes = Dict(
+	:TriA => [
+		["∂ₜ(evalat(vout, vin, b))"],
+		["TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
+		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"],
+		["TriA.Δ(vout, vin, b)", "evalat(vout, vin, Δb)"],
+	],
+	:TriB => [
+		["∂ₜ(evalat(vout, vin, b))"],
+		["TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", "TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
+		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"],
+		["-TriB.Δ(vout, v, TriB.Δ(v, vin, b))", "TriB.Δ(vout, vin, b)"],
+	],
+	:TriC => [
+		
+	],
+)
 
 # ╔═╡ bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
 WideCell(
 md"""
 __Buoyancy transport balance__:
-	
-   $(@bind b1 Select([:a => "∂ₜ(evalat(vout, vin, b))"])) 
-\+ $(@bind b2 Select([:a => "TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", :b => "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"]))
-\+ $(@bind b3 Select([:a => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"]))
-\+ $(@bind b4 Select([:a => "-Dᵇₕ", :b => "evalat(vout, vin, Δb)"]))
-= 0
+
+$(@bind bterms EqSchemes(bschemes[grid_t]))
 """
 ; max_width=1500)
+
+# ╔═╡ 86ab6145-af2f-4e0d-90f9-4f5492f05ee1
+ηschemes = Dict(
+	:TriA => [
+		["∂ₜ(evalat(vout, vin, η))"],
+		["evalat(vout, vin, ∫∇ᵀu⃗dz)"]
+	],
+	:TriB => [
+		["∂ₜ(evalat(vout, vin, η))"],
+		["evalat(vout, vin, ∫∇ᵀu⃗dz)"]
+	],
+	:TriC => [
+		["∂ₜ(evalat(cout, cin, η))"],
+		["evalat(cout, cin, ∫∇ᵀu⃗dz)"]
+	],
+)
 
 # ╔═╡ cffd4061-d02d-4e42-bbca-cc990927824b
 WideCell(
 md"""
 __Surface elevation equation__:
 	
-   $(@bind η1 Select([:a => "∂ₜ(evalat(vout, vin, η))"])) 
-\+ $(@bind η2 Select([:a => "evalat(vout, vin, ∫∇ᵀu⃗dz)"]))
-= 0
+$(@bind ηterms EqSchemes(ηschemes[grid_t]))
 """
 ; max_width=1500)
+
+# ╔═╡ 6c58a2e9-7b61-415e-b020-20b7170082e2
+cschemes = Dict(
+	:TriA => [
+		["TriA.∇ᵀvv(vout, vin, u⃗)", "evalat(vout, vin, ∇ᵀu⃗)"],
+		["∂₃(evalat(vout, vin, w))"]
+	],
+	:TriB => [
+		["TriB.∇ᵀvc(vout, cin, u⃗)", "evalat(vout, vin, ∇ᵀu⃗)"],
+		["∂₃(evalat(vout, vin, w))"]
+	],
+	:TriC => [
+		["TriC.∇ᵀce(cout, e, TriC.ℳ(e, ein, u⃗))", "evalat(cout, cin, ∇ᵀu⃗)"],
+		["∂₃(evalat(cout, cin, w))"]
+	],
+)
 
 # ╔═╡ c690b0a4-6130-4320-869f-2764fb681f3f
 WideCell(
 md"""
 __Continuity Equation__:
 	
-   $(@bind c1 Select([:a => "TriA.∇ᵀvv(vout, vin, u⃗)", :b => "evalat(vout, vin, ∇ᵀu⃗)"])) 
-\+ $(@bind c2 Select([:a => "∂₃(evalat(vout, vin, w))"]))
-= 0
+$(@bind w EqSchemes(cschemes[grid_t]))
 """
 ; max_width=1500)
+
+# ╔═╡ f4fe6284-3ea3-4e57-af2b-664fda7066a3
+pschemes = Dict(
+	:TriA => [
+		["∂₃(evalat(vout, vin, p))"],
+		["-evalat(vout, vin, b)"]
+	],
+	:TriB => [
+		["∂₃(evalat(vout, vin, p))"],
+		["-evalat(vout, vin, b)"]
+	],
+	:TriC => [
+		["∂₃(evalat(cout, cin, p))"],
+		["-evalat(cout, cin, b)"]
+	]
+)
 
 # ╔═╡ b4024a03-2a30-4756-aebe-3f2e776cd8d6
 WideCell(
 md"""
 __Hydrostatic Balance__:
 	
-   $(@bind p1 Select([:a => "∂₃(evalat(vout, vin, p))"])) 
-\+ $(@bind p2 Select([:a => "-evalat(vout, vin, b)"]))
-= 0
+$(@bind p EqSchemes(pschemes[grid_t]))
 """
 ; max_width=1500)
 
@@ -329,7 +427,19 @@ md"""
 """
 
 # ╔═╡ 96d447fc-0e4e-4c2d-8c98-fe50547906e8
+md"""
+##### Baroclinic Axis
+"""
 
+# ╔═╡ 72cdb1b1-0ef2-468b-9e25-af3732e00ee8
+md"""
+##### Symmetric Axis
+"""
+
+# ╔═╡ b861da6e-16f4-4799-bf5c-fca588b523b6
+md"""
+#### B-Grid on Triangular Mesh
+"""
 
 # ╔═╡ 5f414b9f-342d-4e80-8b72-ebc306b0cc78
 html"""<hr>"""
@@ -400,6 +510,8 @@ Vᵇ: $(@bind Vᵇ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
 """)
 
 # ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
+# ╠═╡ disabled = true
+#=╠═╡
 jac = let
 	#jac = eady_jacobian_wo_mtk(Val(grid_t), _le; g, f₀, N², Ri=_Ri, Nz=32, 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, θU=θU, β=β, hmt_scheme, hst_scheme, dissip_scheme)
 	@showtime jac = GridOperatorAnalysis.eady_jacobian(Val(grid_t), k, l, _le; ϕ, g=_g, f₀=_f₀, Ri=_Ri, N²=_N², 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, Nz=16, θU, β, hmt_scheme, hst_scheme, dissip_scheme)
@@ -410,13 +522,18 @@ jac = let
 	#@showtime jac = substitute.(jac, Ref(sqrt3subs))
 	#@showtime jac = Symbolics.simplify_fractions.(jac)	
 end;
+  ╠═╡ =#
 
 # ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
+#=╠═╡
 fun = let
 	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, _Ri, _le, _f₀, _g, _N², _𝕂ᵘ, _𝕂ᵇ; expression=Val{false})
 end;
+  ╠═╡ =#
 
 # ╔═╡ ab60e360-e826-496d-b382-e868f640d85c
+# ╠═╡ disabled = true
+#=╠═╡
 Ks, iωs = let
 	θ = (Ri > 1 ? 0 : π/2) + θU
     Kmax = min(1e-2, 2/√3*π/le)
@@ -442,8 +559,10 @@ Ks, iωs = let
     end
 	(Ks, iωs)
 end
+  ╠═╡ =#
 
 # ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
+#=╠═╡
 let
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
 	θ = (Ri > 1 ? 0 : π/2) + θU
@@ -475,6 +594,7 @@ let
 	#colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 69f7116f-5062-43b3-a004-acd5de35ed1e
 let
@@ -626,47 +746,6 @@ let
 	f
 end
 
-# ╔═╡ 10f7c553-6875-4d22-be26-58947e8a381d
-let
-	Ri = 1/2
-	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
-	fₛ     = min(1e-2, 2/√3*π/le)
-		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
-	xticks = if Ri > 1
-		xs = collect(0.0:1/8:1.1)
-    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
-    	(xs, ls)
-	else
-		xs = collect(0.0:1/4:1.1)
-    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
-		(xs, ls)
-	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
-	M²     = √(N² * f₀^2 / Ri)
-	
-	f = Figure(; size, fontsize=36)
-	for (i, θU) in enumerate([0, π/6])
-		ax = Axis(f[i,1];
-				 xlabel = "wavenumber / fₛ",
-				 ylabel = "growth rate / N M⁻²",
-				 xticks,
-				 aspect,
-				 limits,
-				 )
-		subdf = subset(df, :β=>x->x.==β, :θU=>x->x.≈θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
-		for row in eachrow(subdf)
-			(; Ks, iωs, grid_t, hmt_scheme) = row
-			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
-		end
-		f[i,2] = Legend(f, ax; merge=true, valign=:top)
-		#Label(f[i,1, TopLeft()], "($i)", )
-	end
-	#axislegend()
-	colsize!(f.layout, 1, Aspect(1, aspect))
-	f
-end
-
 # ╔═╡ 8d013161-0743-4907-b133-1f2bacbcc1d1
 let
 	Ri = 100
@@ -708,17 +787,58 @@ let
 	f
 end
 
-# ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+# ╔═╡ 10f7c553-6875-4d22-be26-58947e8a381d
 let
-	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = Ks[end]
+	Ri = 1/2
+	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
+	fₛ     = min(1e-2, 2/√3*π/le)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
-    	ls = ["0.0", "fₛ/8", "fₛ/4","3fₛ/8", "fₛ/2","5fₛ/8", "3fₛ/4","7fₛ/8", "fₛ"]
+    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
     	(xs, ls)
 	else
 		xs = collect(0.0:1/4:1.1)
-    	ls = ["0.0", "fₛ/4", "fₛ/2", "3fₛ/4", "fₛ"]
+    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
+		(xs, ls)
+	end
+	aspect = Ri > 1 ? 1.5 : 2.5
+	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
+	M²     = √(N² * f₀^2 / Ri)
+	
+	f = Figure(; size, fontsize=36)
+	for (i, θU) in enumerate([0, π/6])
+		ax = Axis(f[i,1];
+				 xlabel = "wavenumber / fₛ",
+				 ylabel = "growth rate / N M⁻²",
+				 xticks,
+				 aspect,
+				 limits,
+				 )
+		subdf = subset(df, :β=>x->x.==β, :θU=>x->x.≈θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
+		for row in eachrow(subdf)
+			(; Ks, iωs, grid_t, hmt_scheme) = row
+			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
+		end
+		f[i,2] = Legend(f, ax; merge=true, valign=:top)
+		#Label(f[i,1, TopLeft()], "($i)", )
+	end
+	#axislegend()
+	colsize!(f.layout, 1, Aspect(1, aspect))
+	f
+end
+
+# ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+let
+	size   = Ri > 1 ? (1400, 700) : (1400, 500)
+	fₛ     = min(1e-2, 2/√3*π/le)
+	xticks = if Ri > 1
+		xs = collect(0.0:1/8:1.1)
+    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
+    	(xs, ls)
+	else
+		xs = collect(0.0:1/4:1.1)
+    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
 	aspect = Ri > 1 ? 1.5 : 2.5
@@ -733,6 +853,13 @@ let
 			 aspect,
 			 limits,
 			 )
+	if dissip_scheme == :biharmonic
+		𝕂ᵘ = Vᵘ * le^3
+		𝕂ᵇ = Vᵇ * le^3
+	else
+		𝕂ᵘ = Vᵘ * le
+		𝕂ᵇ = Vᵇ * le
+	end
 	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.==𝕂ᵘ, :𝕂ᵇ=>x->x.==𝕂ᵇ, :Ri=>x->x.==Ri, :grid_t=>x->x.=="TriB")
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
@@ -782,11 +909,18 @@ end
 # ╟─a6e1eda0-c7b6-46be-b435-b999d08d83ba
 # ╟─6e5eb153-8d92-47f9-bee5-8f823abd11e9
 # ╟─826aa7f7-c0f1-4dd4-978f-dc093f970d84
-# ╟─0389932f-20e8-4346-95a2-051249ac3025
+# ╠═b1a33624-23c1-4102-85b7-1e63980f3bf2
+# ╟─51d642b5-b044-4c2a-b7e0-aab048231544
+# ╟─29bef65a-0414-4304-a718-189b6885d2e3
+# ╠═43dd7530-acd3-46f4-98a7-6df6bf171ceb
 # ╟─bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
+# ╟─92853482-fd36-4fe1-b515-9c7696b71c95
 # ╟─cffd4061-d02d-4e42-bbca-cc990927824b
+# ╟─86ab6145-af2f-4e0d-90f9-4f5492f05ee1
 # ╟─c690b0a4-6130-4320-869f-2764fb681f3f
+# ╟─6c58a2e9-7b61-415e-b020-20b7170082e2
 # ╟─b4024a03-2a30-4756-aebe-3f2e776cd8d6
+# ╟─f4fe6284-3ea3-4e57-af2b-664fda7066a3
 # ╟─42b320c0-d9a3-4a84-bcc6-3498d71ceec8
 # ╟─07e1fa2c-7ef0-4a22-9c75-6640a626fe2c
 # ╟─694e01ee-5b10-44e4-a477-e8593ededa8c
@@ -817,10 +951,12 @@ end
 # ╟─1effe5fd-e458-4bc3-8318-88f54396d32e
 # ╟─c68fde99-fd3d-454e-b8d3-c510b35ac02b
 # ╟─6a193b8c-8eac-422a-a6b0-cb3962a44c39
-# ╟─10f7c553-6875-4d22-be26-58947e8a381d
-# ╠═96d447fc-0e4e-4c2d-8c98-fe50547906e8
+# ╟─96d447fc-0e4e-4c2d-8c98-fe50547906e8
 # ╟─8d013161-0743-4907-b133-1f2bacbcc1d1
-# ╠═2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+# ╟─72cdb1b1-0ef2-468b-9e25-af3732e00ee8
+# ╟─10f7c553-6875-4d22-be26-58947e8a381d
+# ╟─b861da6e-16f4-4799-bf5c-fca588b523b6
+# ╟─2cdf19d9-870e-495b-bba9-2c1e29f28ba6
 # ╟─5f414b9f-342d-4e80-8b72-ebc306b0cc78
 # ╟─6e93f103-3988-4a68-8804-eabc14f12f5d
 # ╟─5d57177f-c6c5-496f-942f-755b25fa957d
