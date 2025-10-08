@@ -21,7 +21,8 @@ begin
 	using Pkg
 	Pkg.activate(joinpath(@__DIR__, ".."))
 	using Revise
-	import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z 
+	using CairoMakie
+	import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z , sqrt3
 	import GridOperatorAnalysis: TriAFlow, TriAFlowFT, TriBFlow, TriBFlowFT, TriCFlow, TriCFlowFT
 	import GridOperatorAnalysis: colpt_type, colptidx, compute_phases, sqrt3subs
 	import GridOperatorAnalysis: fourier_transform_expression
@@ -29,7 +30,7 @@ begin
 	import GridOperatorAnalysis.TriB
 	import GridOperatorAnalysis.TriC
 	import GridOperatorAnalysis
-	using Groebner
+	import LinearAlgebra: eigen
 	import OffsetArrays: no_offset_view
 	import Symbolics: substitute, @variables, taylor_coeff, simplify, coeff, taylor, expand, det
 	import Symbolics
@@ -66,6 +67,16 @@ __Grid__: $(@bind grid_t Select([:TriA, :TriB, :TriC]; default=:TriA))
 # ╔═╡ 428cc192-03d0-497c-aee7-f7015c4c09d5
 md"""
 #### Background flow
+
+The baroclinically unstable flow with a sloping buoyancy profile in across-front direction (first studied by Eady) is projected onto the respective discrete spaces.
+The flow is parametrized by:
+- the Richardson number $\mathrm{Ri}$, 
+- the Brunt-Väisälä frequency $\mathrm{N^2}$, 
+- the Coriolis frequency $f_0$ on the f-plane, 
+- the flow direction $θ_U$, 
+- and the flow shift $\beta$ (in $HM^2/f_0$).
+
+The flow on the mesh is restriced to a small neighborhood around the lattices' origins.
 """
 
 # ╔═╡ fb5e7874-c067-4769-aefa-260fd3eca00b
@@ -77,7 +88,7 @@ __Vertical velocity profile in the flow direction__
 """
 
 # ╔═╡ 2663542e-c719-42f0-bf00-790e8aa211fe
-substitute(bflow.u⃗[1,0,0,1] / cos(θU), Dict(√(f₀^2*N²/Ri) => M²))
+#substitute(bflow.u⃗[1,0,0,1] / cos(θU), Dict(√(f₀^2*N²/Ri) => M²))
 
 # ╔═╡ 1b94a213-9311-4dad-bc3e-0ac2dcb71e14
 Ū = (z + 4000 * (1//2 + β)) * -M²/f₀
@@ -85,6 +96,8 @@ Ū = (z + 4000 * (1//2 + β)) * -M²/f₀
 # ╔═╡ 430cca4e-08b6-4d57-a4dc-422dcf8cc92e
 md"""
 #### Pertubation Flow
+
+The background flow is perturbed by another flow scaled by the asymptotic parameter $\epsilon$.
 """
 
 # ╔═╡ 77eb6488-c26a-416a-839b-1e617f0cdd50
@@ -131,22 +144,15 @@ __Scheme for the momentum transport__: $(@bind hmt_scheme select_hmt_scheme(grid
 # ╔═╡ 39031d65-863d-48cf-aeaf-520417eaf071
 md"""
 #### Linearization Procedure
-...
-"""
 
-# ╔═╡ 18a2e213-d9a2-4094-b03a-f57df7c16e82
-# ╠═╡ disabled = true
-#=╠═╡
-lhmt = if grid_t == :TriC
-	expand(taylor_coeff(hmt, ϵ, 1))
-else
-	[expand(taylor_coeff(hmt[iTH], ϵ, 1)) for iTH=1:2]
-end;
-  ╠═╡ =#
+First, evaluate the momentum transport operator at the perturbed background flow. To obtain the linearized expression in the perturbed flow, the nonlinear expression is (Taylor) expanded in $\epsilon$ and only the term that is of first-order in $\epsilon$ is retained. Since the background velocity is constant on horizontal planes, the linearized operator is also constant on horizontal planes.
+"""
 
 # ╔═╡ 286c65de-46f4-462d-903c-ad850bb1a3b1
 md"""
 #### Fourier Transform
+
+Replacing the state variables' fields of the pertubation flow by plane waves with wavenumber $\vec{k} = \begin{bmatrix} k & l \end{bmatrix}^T$, the linearized discrete operator is transformed into a multiplication operator acting on the amplitudes of the respective plane wave fields. The multiplication operator is also called the __Fourier symbol__ of the linearized discrete operator.
 """
 
 # ╔═╡ f71432b9-cb86-4f5e-a6ba-4ad443140292
@@ -159,7 +165,7 @@ md"""
 
 # ╔═╡ 0f1cbe99-8b11-426d-8d28-77b6dffef277
 md"""
-Small wavenumber approximation: $(@bind doapprox CheckBox(default=false))
+Small wavenumber approximation: $(@bind doapprox CheckBox(default=true))
 """
 
 # ╔═╡ 46afe77d-f904-40e9-92bb-cab83aeea51e
@@ -201,6 +207,15 @@ md"""
 __Discretization scheme for the momentum transport__: 
 $(@bind hst_scheme select_hst_scheme(grid_t))
 """
+
+# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
+# ╠═╡ disabled = true
+#=╠═╡
+fhst = let
+	(; biH) = inputs
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
+end;
+  ╠═╡ =#
 
 # ╔═╡ 698f9004-f56b-41c0-b6a6-b55c505fb1a8
 md"""
@@ -299,6 +314,8 @@ begin
 end;
 
 # ╔═╡ e18fbb3e-02cb-4add-ab00-9e0cc7ae935f
+# ╠═╡ disabled = true
+#=╠═╡
 floataside(
 	@bind inputs PlutoUI.combine() do Child
 	u⃗inputs = [
@@ -332,6 +349,7 @@ floataside(
 	$(binputs)
 	"""
 end; top=300)
+  ╠═╡ =#
 
 # ╔═╡ 3782fb16-26b7-4edd-8591-ef119b1cabef
 getflowft(grid_t) =
@@ -399,7 +417,6 @@ begin
 		u⃗ᵀ∇ = gethmt(grid_t, hmt_scheme)
 		push!(hmts, u⃗ᵀ∇(colptidx(0,0,iH,Val(colpt_type(flow_t, :u⃗))), cp, pu⃗, pu⃗))
 	end
-	hmt = hmts[inputs.iH]
 end;
 
 # ╔═╡ 50fc9497-99e4-44d7-b25f-ffccd14b145a
@@ -474,6 +491,11 @@ fhsts = [
 	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
 ];
 
+# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
+#=╠═╡
+fhst = fhsts[inputs.biH]
+  ╠═╡ =#
+
 # ╔═╡ 391de831-feea-436e-9be5-15686d9c9155
 md"""
 ### Rewriter
@@ -496,17 +518,15 @@ rtrig = let
 end
 
 # ╔═╡ 192a4172-a2bb-416b-83df-194a090b093a
-begin
-	sfhmts = let
-		colpt_t = colpt_type(flow_t, :u⃗)
-		d = dims(colpt_t)
-		if colpt_t == :edge
-			zeros(Complex{Symbolics.Num}, d, d)
-		else
-			zeros(Complex{Symbolics.Num}, d, 2, d, 2)
-		end
+sfhmts = let
+	colpt_t = colpt_type(flow_t, :u⃗)
+	d       = dims(colpt_t)
+	sfhmts = if colpt_t == :edge
+		zeros(Complex{Symbolics.Num}, d, d)
+	else
+		zeros(Complex{Symbolics.Num}, d, 2, d, 2)
 	end
-	for iH=1:dims(colpt_type(flow_t, :u⃗))
+	for iH=1:d
 		fhmt = let
 			fhmt = expand.(fhmts[iH])
 			if doapprox
@@ -518,34 +538,72 @@ begin
 			fhmt = expand.(fhmt)
 			fhmt = substitute.(fhmt, Ref(sqrt3subs))
 		end
-		for iTH=1:2
-			for jH=1:dims(colpt_type(flow_t, :u⃗))
-				for jTH=1:2
-					u = fflow.u⃗[jTH, jH]
-					sfhmt = taylor_coeff(fhmt[iTH], u, 1)
-					sfhmts[iH, iTH, jH, jTH] = simplify(sfhmt; expand=true)
+		if colpt_t == :edge
+			for jH = 1:d
+				u = fflow.u⃗[jH]
+				sfhmt = taylor_coeff(fhmt, u, 1)
+				sfhmts[iH, jH] = simplify(sfhmt; expand=true)
+			end
+		else
+			for iTH=1:2
+				for jH=1:d
+					for jTH=1:2
+						u = fflow.u⃗[jTH, jH]
+						sfhmt = taylor_coeff(fhmt[iTH], u, 1)
+						sfhmts[iH, iTH, jH, jTH] = simplify(sfhmt; expand=true)
+					end
 				end
 			end
 		end
 	end
-end
+	sfhmts
+end;
 
 # ╔═╡ 88ad62f8-97f2-43b1-92bc-34ef51cf99f5
 begin
 	@variables k̃, l̃
 	F = let
 		F = sfhmts[:,1,:,1] ./ Ū
-		F = substitute.(F, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-		if doapprox
-			F = substitute.(F, Ref(Dict(a=>2/GridOperatorAnalysis.sqrt3 * h)))
-			F = simplify.(F; expand=true)
-			F = substitute.(F, Ref(sqrt3subs))
-		else
-			F = substitute.(F, Ref(Dict(GridOperatorAnalysis.sqrt3=> 2 * h/a)))
+		Fre = real.(F)
+		Fim = imag.(F)
+		Fim = substitute.(Fim, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
+		for f in [Fre, Fim]
+			if doapprox
+				f .= substitute.(f, Ref(Dict(a=>2/sqrt3 * h)))
+				f .= simplify.(f; expand=true)
+				f .= substitute.(f, Ref(sqrt3subs))
+				f .= simplify.(f; expand=true)
+			else
+				f = substitute.(f, Ref(Dict(sqrt3=> 2 * h/a)))
+			end
 		end
-		F = simplify.(F; expand=true)
-		F = k̃ * simplify.(taylor_coeff.(F, k̃, 1)) + l̃ * simplify.(taylor_coeff.(F, l̃, 1))
+		Fim = l̃ * simplify.(taylor_coeff.(Fim, l̃, 1)) + k̃ * simplify.(taylor_coeff.(Fim, k̃, 1))
+		Fre .+ Fim * im
 	end
+end
+
+# ╔═╡ 4c11881b-8b92-4f9e-807d-0d2685893c82
+begin
+	@variables K
+	Fn = let
+		F = if colpt_type(flow_t, :u⃗) == :edge
+			sfhmts ./ Ū
+		elseif grid_t == :TriB && hmt_scheme == :avi
+			reshape(sfhmts ./ Ū, 4, 4)
+		else	
+			sfhmts[:,1,:,1] ./ Ū
+		end
+		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		if doapprox
+			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
+			F .= simplify.(F; expand=true)
+			F .= substitute.(F, Ref(sqrt3subs))
+		else
+			F = expand(F)
+			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
+		end
+	end
+	Fn = simplify.(Fn ./ K; expand=true)
 end
 
 # ╔═╡ 78fa487a-5bdf-4aa3-b9c5-25d856697fae
@@ -666,7 +724,7 @@ function cubic(d, c, b, a)
 	Δ₁ = 2*b^3 - 9 * a * b * c + 27 * a^2 * d
 	C = cbrt((Δ₁ + sqrt(Δ₁^2 - 4 * Δ₀^3)) / 2)
 	vars = [Symbolics.get_variables(real(C)); Symbolics.get_variables(imag(C))]
-	@show substitute(C, Dict(vars .=> 0))
+	substitute(C, Dict(vars .=> 0))
 	Cs = [C * exp(im*2*π*k/3) for k=0:2]
 	[-1/(3*a) * (b + C + Δ₀/C) for C in Cs]
 end
@@ -703,25 +761,63 @@ compute_symbolic_eigenvals = let
 	end
 end
 
-# ╔═╡ f1feff04-e468-4909-af4c-9bc5a032f407
-vs = let
-	A = taylor_coeff.(F, k̃, 1)
-	#A = [[A [0//1; 0//1]]; 0//1 0//1 1//1]
-	vs = compute_symbolic_eigenvals(Symbolics.wrap.(A))
-	Symbolics.simplify.(vs; expand=true)
+# ╔═╡ 16535b97-0c7e-4c14-9e71-604b0e0c9a3d
+if doapprox
+	svs = compute_symbolic_eigenvals(Symbolics.wrap.(Fn))
+	svs = Symbolics.simplify.(svs; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
 end
 
-# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
-fhst = fhsts[inputs.biH]
-
-# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
-# ╠═╡ disabled = true
-#=╠═╡
-fhst = let
-	(; biH) = inputs
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
+# ╔═╡ f1feff04-e468-4909-af4c-9bc5a032f407
+K̃s, ωs = let
+	@variables K̃
+	K̃s = range(floatmin(Float64), π, 100)
+	ωs = []
+	if doapprox
+		for sv in svs
+			sv    = substitute(sv, Dict(
+				θU     => 0, 
+				h     => K̃ / K, 
+				a     => K̃ / K * 2 / √3, 
+				sqrt3 => √3))
+			sv    = simplify(sv; expand=true)
+			vfunc = Symbolics.build_function(sv, K̃; expression=Val(false))
+			push!(ωs, vfunc.(K̃s))
+		end
+	else
+		A = simplify.(substitute.(Fn, Ref(Dict(θU => 0, h => K̃ / K, a => K̃ / K * 2 / √3, GridOperatorAnalysis.sqrt3 => √3))); expand=true)
+		Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+		for k̃ in K̃s
+			(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+			push!(ωs, values)
+		end
+	end
+	(K̃s, ωs)
 end;
-  ╠═╡ =#
+
+# ╔═╡ 54131367-66b2-4bc7-8820-0b6a5fc19ae3
+let
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / i\bar{U}K",
+			 aspect = 1,
+			 )
+	if doapprox
+		for ω in ωs
+			lines!(ax, K̃s, imag.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, imag(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
 
 # ╔═╡ Cell order:
 # ╟─b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
@@ -746,7 +842,6 @@ end;
 # ╟─39031d65-863d-48cf-aeaf-520417eaf071
 # ╠═a64854b8-b161-48d2-87da-ebed3e08671c
 # ╠═50fc9497-99e4-44d7-b25f-ffccd14b145a
-# ╠═18a2e213-d9a2-4094-b03a-f57df7c16e82
 # ╟─286c65de-46f4-462d-903c-ad850bb1a3b1
 # ╠═f71432b9-cb86-4f5e-a6ba-4ad443140292
 # ╠═26b13d30-d8cf-4ba4-9f84-a591bb830630
@@ -754,8 +849,11 @@ end;
 # ╟─0f1cbe99-8b11-426d-8d28-77b6dffef277
 # ╠═192a4172-a2bb-416b-83df-194a090b093a
 # ╠═88ad62f8-97f2-43b1-92bc-34ef51cf99f5
+# ╠═4c11881b-8b92-4f9e-807d-0d2685893c82
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
+# ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
 # ╠═f1feff04-e468-4909-af4c-9bc5a032f407
+# ╟─54131367-66b2-4bc7-8820-0b6a5fc19ae3
 # ╟─990c73d7-0d2a-457c-81c7-88a1f80cb44a
 # ╟─27ec48bb-d7bb-4b70-9932-08f0e0926504
 # ╟─e9dd8811-c91e-45e4-8ced-afd7391f248a
