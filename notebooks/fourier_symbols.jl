@@ -208,15 +208,6 @@ __Discretization scheme for the momentum transport__:
 $(@bind hst_scheme select_hst_scheme(grid_t))
 """
 
-# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
-# ╠═╡ disabled = true
-#=╠═╡
-fhst = let
-	(; biH) = inputs
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
-end;
-  ╠═╡ =#
-
 # ╔═╡ 698f9004-f56b-41c0-b6a6-b55c505fb1a8
 md"""
 ### Fourier Symbols
@@ -490,11 +481,6 @@ lhsts = [
 fhsts = [
 	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
 ];
-
-# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
-#=╠═╡
-fhst = fhsts[inputs.biH]
-  ╠═╡ =#
 
 # ╔═╡ 391de831-feea-436e-9be5-15686d9c9155
 md"""
@@ -818,6 +804,20 @@ let
 	#axislegend()
 	f
 end
+
+# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
+# ╠═╡ disabled = true
+#=╠═╡
+fhst = let
+	(; biH) = inputs
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
+end;
+  ╠═╡ =#
+
+# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
+#=╠═╡
+fhst = fhsts[inputs.biH]
+  ╠═╡ =#
 
 # ╔═╡ Cell order:
 # ╟─b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
