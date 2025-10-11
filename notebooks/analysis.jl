@@ -111,6 +111,14 @@ dflow = let
     construct_flowΔxz(grid_t, nS; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
 end;
 
+# ╔═╡ f05d338f-5ebf-4ff0-a8bc-86f1a14d0360
+md"""
+#### Strategy to calculate exact operators
+1. linearize
+2. fourier transform expression
+3. take limit as le -> floatmin(Float64)
+"""
+
 # ╔═╡ e9c5a7ef-6412-4b59-9aa7-d240277550e0
 begin
 	∂ₜ = Differential(t)
@@ -417,14 +425,28 @@ begin
 	w = pflow.w[vin[1], vin[2], vin[3]]
 	p = pflow.p[vin[1], vin[2], vin[3]]
 	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[vin[1], vin[2], vin[3]]
-	∇ᵀu⃗ = ϵ * Im * [k; l]' * fflow.u⃗[:, 1]
-	Δu⃗ = [-(k^2 + l^2) * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
-	Δ²u⃗ = [(k^2 + l^2)^2 * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
-	Δb = -(k^2 + l^2) * ϵ * fflow.b[1]
-	Δ²b = (k^2 + l^2)^2 * ϵ * fflow.b[1]
-	∇p = ϵ * Im * [k; l] * fflow.p[1]
-	∇η = ϵ * Im * [k; l] * fflow.η[1]
-	ū⃗ᵀ∇u⃗ = ϵ * bflow.u⃗[:,0,0,]' * Im * [k; l] * fflow.u⃗[:,1]'
+	
+	# this is still dependent on TriA
+	#∇ᵀu⃗ = let
+	#	a = exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
+	#	ϵ * (real(a) + Im * imag(a))
+	#end
+	#∇ᵀu⃗ = ϵ * Im * [k; l]' * fflow.u⃗[:, 1]
+	#Δu⃗ = let
+	#	as = []
+	#	for iTH=1:2
+	#		a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
+	#		push!(as, ϵ * (real(a) + Im * imag(a)))
+	#	end
+	#	as
+	#end
+	#Δu⃗ = [-(k^2 + l^2) * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
+	#Δ²u⃗ = [(k^2 + l^2)^2 * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
+	#Δb = -(k^2 + l^2) * ϵ * fflow.b[1]
+	#Δ²b = (k^2 + l^2)^2 * ϵ * fflow.b[1]
+	#∇p = ϵ * Im * [k; l] * fflow.p[1]
+	#∇η = ϵ * Im * [k; l] * fflow.η[1]
+	#ū⃗ᵀ∇u⃗ = ϵ * bflow.u⃗[:,0,0,]' * Im * [k; l] * fflow.u⃗[:,1]'
 	u⃗ᵀ∇b̄ = let
 		_u⃗  = ϵ * [dflow.u⃗[iTH, vin[1], vin[2], vin[3]] for iTH=1:2]
 		∇b̄ = TriA.∇vv(VertexIndex((0,0,1)), vin, bflow.b[vin[1], vin[2], vin[3]])
@@ -442,6 +464,17 @@ end;
 
 # ╔═╡ 61150eb4-c9ce-4fd8-8314-780b9c1c29b6
 u⃗⊥ = [-u⃗[2]; u⃗[1]];
+
+# ╔═╡ dce27137-262a-452b-a7e4-0093c94cb5bf
+_∇ᵀu⃗ = if grid_t == Val(:TriA)
+	ϵ * Im * [k; l]' * fflow.u⃗[:, 1]
+elseif grid_t == Val(:TriB)
+	ϵ * Im * [k; l]' * [1//2 * (fflow.u⃗[iTH, 1] + fflow.u⃗[iTH, 2]) for iTH=1:2]
+elseif grid_t == Val(:TriC)
+	
+else
+	1
+end
 
 # ╔═╡ 0ad8eba1-f992-4f24-aa90-38ca629f8c72
 ϕ = let
@@ -472,6 +505,96 @@ rtrig = let
 	end
 	SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(SymbolicUtils.RestartedChain([rcos, rsin])))
 end
+
+# ╔═╡ 3ff311ec-aaaf-42f1-b11a-25be4632192c
+function exactop(iH, cp_t_out, expr)
+	expr = substitute(expr, Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le))
+	expr = Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1))
+	fexpr = GridOperatorAnalysis.fourier_transform_expression(iH, cp_t_out, expr; dflow, fflow, ϕ)
+	fexpr = Symbolics.simplify(fexpr; expand=true, rewriter=rtrig)
+	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
+	Symbolics.simplify(fexpr; expand=true)
+end
+
+# ╔═╡ de5471e8-9965-4319-9382-09bbc0fe9f2f
+@show exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
+
+# ╔═╡ 2ced61a3-8306-423f-b0f7-71ab9906186a
+function exactops(grid_t)
+	if grid_t == Val(:TriA)
+		∇ᵀu⃗ = let
+			a = exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δu⃗ = let
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		Δ²u⃗ = let
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, u⃗[iTH])))
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+		end
+		Δb = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δ²b = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, b)))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		∇p = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, p)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		∇η = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, η)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇u⃗ = let
+			as = []
+			expr = TriA.u⃗ᵀ∇(VertexIndex((0,0,1)), vin, u⃗, u⃗)
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇b = let
+			a = exactop(1, :vertex, TriA.u⃗∇ᵀ(VertexIndex((0,0,1)), vin, u⃗, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b)
+	elseif grid_t == Val(:TriB)
+		(;)
+	elseif grid_t == Val(:TriC)
+		(;)
+	else
+		(;)
+	end
+end
+
+# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
+(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
+
+# ╔═╡ d0ec9183-537a-402d-9805-d7356001b91c
+@show Δu⃗
 
 # ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
 # ╠═╡ disabled = true
@@ -1025,7 +1148,7 @@ fsys.momentum_transport_eq[2,1][7] = (k^2 + l^2) * fflow.u⃗[2,1] * _𝕂ᵘ
 @show fsys.momentum_transport_eq[1,1][7]
 
 # ╔═╡ a2687cd8-4e59-414a-8560-e8293935e6b0
-jac = lowering_sys(grid_t, fsys, fflow; Nz=46);
+jac = lowering_sys(grid_t, fsys, fflow; Nz=8);
 
 # ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
 fun = let
@@ -1107,6 +1230,13 @@ end
 # ╠═b9fa1a9b-7989-4f1c-abe8-de153cf8085f
 # ╠═0ef5eb5f-6c6c-4ecc-87bd-16247f9056e4
 # ╠═0d0a0e92-2d63-4745-9114-8a10c5be58de
+# ╠═ee93d7e8-14a0-4021-8f3d-ddf14a79d608
+# ╠═d0ec9183-537a-402d-9805-d7356001b91c
+# ╠═dce27137-262a-452b-a7e4-0093c94cb5bf
+# ╠═de5471e8-9965-4319-9382-09bbc0fe9f2f
+# ╠═3ff311ec-aaaf-42f1-b11a-25be4632192c
+# ╠═2ced61a3-8306-423f-b0f7-71ab9906186a
+# ╟─f05d338f-5ebf-4ff0-a8bc-86f1a14d0360
 # ╠═4767f71a-fd13-4c26-8ec4-bf16ac6028a4
 # ╠═f0f59948-54d8-477e-b2cb-595f68ca13b2
 # ╠═e9c5a7ef-6412-4b59-9aa7-d240277550e0
