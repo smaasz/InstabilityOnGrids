@@ -111,14 +111,6 @@ dflow = let
     construct_flowΔxz(grid_t, nS; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
 end;
 
-# ╔═╡ f05d338f-5ebf-4ff0-a8bc-86f1a14d0360
-md"""
-#### Strategy to calculate exact operators
-1. linearize
-2. fourier transform expression
-3. take limit as le -> floatmin(Float64)
-"""
-
 # ╔═╡ e9c5a7ef-6412-4b59-9aa7-d240277550e0
 begin
 	∂ₜ = Differential(t)
@@ -191,31 +183,239 @@ end
 # ╔═╡ 29bef65a-0414-4304-a718-189b6885d2e3
 schemes = Dict(
 	:TriA => [
-		["∂ₜ(evalat(vout, vin, u⃗[iTH]))"],
-		["TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", "evalat(vout, vin, ū⃗ᵀ∇u⃗[iTH])"],
-		["f₀ * evalat(vout, vin, u⃗⊥[iTH])"],
-		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))"],
-		["TriA.∇vv(vout, vin, p)[iTH]", "evalat(vout, vin, ∇p[iTH])"],
-		["g * TriA.∇vv(vout, vin, η)[iTH]", "g * evalat(vout, vin, ∇η[iTH])"],
-		["𝕂ᵘ * -TriA.Δ(vout, vin, u⃗[iTH])", "𝕂ᵘ * TriA.Δ(vout, v, TriA.Δ(v, vin, u⃗[iTH]))", "𝕂ᵘ * -evalat(vout, vin, Δu⃗[iTH])", "𝕂ᵘ * evalat(vout, vin, Δ²u⃗[iTH])",],
+		[
+			("∂ₜ(evalat(vout, vin, u⃗[iTH]))", 0) => "∂ₜ(evalat(vout, vin, u⃗[iTH]))"],
+		[
+			("TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", 0) => "TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", 
+			("TriA.u⃗ᵀ∇(vout, vin, u⃗, u⃗)[iTH]", 1) => "evalat(vout, vin, ū⃗ᵀ∇u⃗[iTH])"
+		],
+		[
+			("f₀ * evalat(vout, vin, u⃗⊥[iTH])", 0) => "f₀ * evalat(vout, vin, u⃗⊥[iTH])"
+		],
+		[
+			("evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))", 0) => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, u⃗[iTH]))"
+		],
+		[
+			("TriA.∇vv(vout, vin, p)[iTH]", 0) => "TriA.∇vv(vout, vin, p)[iTH]", 
+			("TriA.∇vv(vout, vin, p)[iTH]", 1) => "evalat(vout, vin, ∇p[iTH])"
+		],
+		[
+			("g * TriA.∇vv(vout, vin, η)[iTH]", 0) => "g * TriA.∇vv(vout, vin, η)[iTH]", 
+			("g * TriA.∇vv(vout, vin, η)[iTH]", 1) => "g * evalat(vout, vin, ∇η[iTH])"
+		],
+		[
+			("𝕂ᵘ * -TriA.Δ(vout, vin, u⃗[iTH])", 0) => "𝕂ᵘ * -TriA.Δ(vout, vin, u⃗[iTH])", 
+			("𝕂ᵘ * TriA.Δ(vout, v, TriA.Δ(v, vin, u⃗[iTH]))", 0) => "𝕂ᵘ * TriA.Δ(vout, v, TriA.Δ(v, vin, u⃗[iTH]))", 
+			("𝕂ᵘ * -TriA.Δ(vout, vin, u⃗[iTH])", 1) => "𝕂ᵘ * -evalat(vout, vin, Δu⃗[iTH])", 
+			("𝕂ᵘ * TriA.Δ(vout, v, TriA.Δ(v, vin, u⃗[iTH]))", 1) => "𝕂ᵘ * evalat(vout, vin, Δ²u⃗[iTH])"
+		],
 	],
 	:TriB => [
-		["∂ₜ(evalat(cout, cin, u⃗[iTH]))"],
-		["TriB.u⃗ᵀ∇_asc(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_avi(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_fdv(cout, cin, u⃗, u⃗)[iTH]", "TriB.u⃗ᵀ∇_fdcre(cout, cin, u⃗, u⃗)[iTH]", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
-		["f₀ * evalat(cout, cin, u⃗⊥[iTH])"],
-		["TriB.av_cv(cout, vin, w) * ∂₃(evalat(cout, cin, u⃗[iTH]))", "evalat(cout, cin, w̄) * ∂₃(evalat(cout, cin, u⃗[iTH]))"],
-		["TriB.∇cv(cout, vin, p)[iTH]", "evalat(cout, vin, ∇p[iTH])"],
-		["g * TriB.∇cv(cout, vin, η)[iTH]", "g * evalat(cout, vin, ∇η[iTH])"],
-		["𝕂ᵘ * evalat(cout, cin, Δu⃗[iTH])", "𝕂ᵘ * -evalat(cout, cin, Δ²u⃗)", "𝕂ᵘ * TriB.Δ⃗(cout, cin, u⃗)[iTH]", "𝕂ᵘ * -TriB.Δ⃗(cout, c, TriB.Δ⃗(c, cin, u⃗))[iTH]"],
+		[
+			("∂ₜ(evalat(cout, cin, u⃗[iTH]))", 0) => "∂ₜ(evalat(cout, cin, u⃗[iTH]))"
+		],
+		[
+			("TriB.u⃗ᵀ∇_asc(cout, cin, u⃗, u⃗)[iTH]", 0) => "TriB.u⃗ᵀ∇_asc(cout, cin, u⃗, u⃗)[iTH]", 
+			("TriB.u⃗ᵀ∇_avi(cout, cin, u⃗, u⃗)[iTH]", 0) => "TriB.u⃗ᵀ∇_avi(cout, cin, u⃗, u⃗)[iTH]", 
+			("TriB.u⃗ᵀ∇_fdv(cout, cin, u⃗, u⃗)[iTH]", 0) => "TriB.u⃗ᵀ∇_fdv(cout, cin, u⃗, u⃗)[iTH]", 
+			("TriB.u⃗ᵀ∇_fdcre(cout, cin, u⃗, u⃗)[iTH]", 0) => "TriB.u⃗ᵀ∇_fdcre(cout, cin, u⃗, u⃗)[iTH]", 
+			("TriB.u⃗ᵀ∇_asc(cout, cin, u⃗, u⃗)[iTH]", 1) => "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"
+		],
+		[
+			("f₀ * evalat(cout, cin, u⃗⊥[iTH])", 0) => "f₀ * evalat(cout, cin, u⃗⊥[iTH])"
+		],
+		[
+			("TriB.av_cv(cout, vin, w) * ∂₃(evalat(cout, cin, u⃗[iTH]))", 0) => "TriB.av_cv(cout, vin, w) * ∂₃(evalat(cout, cin, u⃗[iTH]))",
+			("TriB.av_cv(cout, vin, w) * ∂₃(evalat(cout, cin, u⃗[iTH]))", 1) => "evalat(cout, cin, w̄) * ∂₃(evalat(cout, cin, u⃗[iTH]))"
+		],
+		[
+			("TriB.∇cv(cout, vin, p)[iTH]", 0) => "TriB.∇cv(cout, vin, p)[iTH]", 
+			("TriB.∇cv(cout, vin, p)[iTH]", 1) => "evalat(cout, vin, ∇p[iTH])"
+		],
+		[
+			("g * TriB.∇cv(cout, vin, η)[iTH]", 0) => "g * TriB.∇cv(cout, vin, η)[iTH]", 
+			("g * TriB.∇cv(cout, vin, η)[iTH]", 1) => "g * evalat(cout, vin, ∇η[iTH])"
+		],
+		[
+			("𝕂ᵘ * -TriB.Δ⃗(cout, cin, u⃗)[iTH]", 0) => "𝕂ᵘ * -TriB.Δ⃗(cout, cin, u⃗)[iTH]",
+			("𝕂ᵘ * -TriB.Δ⃗(cout, cin, u⃗)[iTH]", 1) => "𝕂ᵘ * -evalat(cout, cin, Δu⃗[iTH])", 
+			("𝕂ᵘ * TriB.Δ⃗(cout, c, TriB.Δ⃗(c, cin, u⃗))[iTH]", 0) => "𝕂ᵘ * TriB.Δ⃗(cout, c, TriB.Δ⃗(c, cin, u⃗))[iTH]",
+			("𝕂ᵘ * TriB.Δ⃗(cout, c, TriB.Δ⃗(c, cin, u⃗))[iTH]", 1) => "𝕂ᵘ * evalat(cout, cin, Δ²u⃗)",
+			
+		],
 	],
 	:TriC => [
-		["∂ₜ(evalat(eout, ein, u⃗))"],
-		["TriC.u⃗∇(eout, ein, u⃗, u⃗)"],
-		["TriC.ℳ̃(eout, ein, v, u⃗, f₀)"],
-		["TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", "evalat(eout, ein, w̄) * ∂₃(evalat(eout, ein, ū))"],
-		["TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))"],
-		["g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))"],
-		["𝕂ᵘ * -TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", " 𝕂ᵘ * TriC.Δ⃗(eout, ein, u⃗)"],
+		[
+			("∂ₜ(evalat(eout, ein, u⃗))", 0) => "∂ₜ(evalat(eout, ein, u⃗))"
+		],
+		[
+			("TriC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)", 0) => "TriC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)",
+			("TriC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)", 1) => "evalat(eout, ein, u⃗ᵀ∇u⃗)"
+		],
+		[
+			("TriC.ℳ̃(eout, ein, v, u⃗, f₀)", 0) => "TriC.ℳ̃(eout, ein, v, u⃗, f₀)"
+		],
+		[
+			("TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", 0) => "TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", 
+			("TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", 1) => "evalat(eout, ein, w̄) * ∂₃(evalat(eout, ein, ū))"
+		],
+		[
+			("TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))", 0) => "TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))"
+		],
+		[
+			("g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))", 0) => "g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))"
+		],
+		[
+			("𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)",
+			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 
+		],
+	]
+)
+
+# ╔═╡ 92853482-fd36-4fe1-b515-9c7696b71c95
+bschemes = Dict(
+	:TriA => [
+		[
+			("∂ₜ(evalat(vout, vin, b))", 0) => "∂ₜ(evalat(vout, vin, b))"
+		],
+		[
+			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", 0) => "TriA.u⃗∇ᵀ(vout, vin, u⃗, b)",
+			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗ᵀ∇b)",
+			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b-_le^2/8*TriA.Δ(vin,vin,b))", 0) => "TriA.u⃗∇ᵀ_high(vout, vin, u⃗, b)",
+			("evalat(vout, vin, ū⃗ᵀ∇b)+evalat(vout, vin, u⃗ᵀ∇b̄)", 0) => "evalat(vout, vin, ū⃗ᵀ∇b)+evalat(vout, vin, u⃗ᵀ∇b̄)"
+		],
+		[
+			("evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))", 0) => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"
+		],
+		[
+			("𝕂ᵇ * -TriA.Δ(vout, vin, b)", 0) => "𝕂ᵇ * -TriA.Δ(vout, vin, b)", 
+			("𝕂ᵇ * -TriA.Δ(vout, vin, b)", 1) => "𝕂ᵇ * -evalat(vout, vin, Δb)",
+			("𝕂ᵇ * TriA.Δ(vout, v, TriA.Δ(v, vin, b))", 0) => "𝕂ᵇ * TriA.Δ(vout, v, TriA.Δ(v, vin, b))",
+			("𝕂ᵇ * TriA.Δ(vout, v, TriA.Δ(v, vin, b))", 1) => "𝕂ᵇ * evalat(vout, vin, Δ²b)"
+		],
+	],
+	:TriB => [
+		[
+			("∂ₜ(evalat(vout, vin, b))", 0) => "∂ₜ(evalat(vout, vin, b))"
+		],
+		[
+			("TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 0) => "TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 
+		 	("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 0) => "TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 
+			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗ᵀ∇b)"
+		],
+		[
+			("evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))", 0) => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"
+		],
+		[
+			("𝕂ᵇ * -TriB.Δ(vout, vin, b)", 0) => "𝕂ᵇ * -TriB.Δ(vout, vin, b)",
+			("𝕂ᵇ * -TriB.Δ(vout, vin, b)", 1) => "𝕂ᵇ * -evalat(vout, vin, Δb)",
+			("𝕂ᵇ * TriB.Δ(vout, v, TriB.Δ(v, vin, b))", 0) => "𝕂ᵇ * TriB.Δ(vout, v, TriB.Δ(v, vin, b))",
+			("𝕂ᵇ * TriB.Δ(vout, v, TriB.Δ(v, vin, b))", 1) => "𝕂ᵇ * evalat(vout, vin, Δ²b)", 
+		],
+	],
+	#, , 
+	:TriC => [
+		[
+			("∂ₜ(evalat(cout, cin, b))", 0) => "∂ₜ(evalat(cout, cin, b))"
+		],
+		[
+			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)", 0) => "TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)",
+			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b-_le^2/24*TriC.Δ(cin,cin,b))", 0) => "TriC.u⃗∇ᵀ_high(cout, ein, cin, u⃗, b)"
+		],
+		[
+			("evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))", 0) => "evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))"
+		],
+		[
+			("𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 0) => "𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 
+			("𝕂ᵇ * TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * TriC.Δ(cout, cin, b)"
+		]
+	],
+)
+
+# ╔═╡ 86ab6145-af2f-4e0d-90f9-4f5492f05ee1
+ηschemes = Dict(
+	:TriA => [
+		[
+			("∂ₜ(evalat(vout, vin, η))", 0) => "∂ₜ(evalat(vout, vin, η))"
+		],
+		[
+			("evalat(vout, vin, ∫∇ᵀu⃗dz)", 0) => "evalat(vout, vin, ∫∇ᵀu⃗dz)"
+		]
+	],
+	:TriB => [
+		[
+			("∂ₜ(evalat(vout, vin, η))", 0) => "∂ₜ(evalat(vout, vin, η))"
+		],
+		[
+			("evalat(vout, vin, ∫∇ᵀu⃗dz)", 0) => "evalat(vout, vin, ∫∇ᵀu⃗dz)"
+		]
+	],
+	:TriC => [
+		[
+			("∂ₜ(evalat(cout, cin, η))", 0) => "∂ₜ(evalat(cout, cin, η))"
+		],
+		[
+			("evalat(cout, cin, ∫∇ᵀu⃗dz)", 0) => "evalat(cout, cin, ∫∇ᵀu⃗dz)"
+		]
+	],
+)
+
+# ╔═╡ 6c58a2e9-7b61-415e-b020-20b7170082e2
+cschemes = Dict(
+	:TriA => [
+		[
+			("TriA.∇ᵀvv(vout, vin, u⃗)", 0) => "TriA.∇ᵀvv(vout, vin, u⃗)", 
+			("TriA.∇ᵀvv(vout, vin, u⃗)", 1) => "evalat(vout, vin, ∇ᵀu⃗)"
+		],
+		[
+			("∂₃(evalat(vout, vin, w))", 0) => "∂₃(evalat(vout, vin, w))"
+		]
+	],
+	:TriB => [
+		[
+			("TriB.∇ᵀvc(vout, cin, u⃗)", 0) => "TriB.∇ᵀvc(vout, cin, u⃗)", 
+			("TriB.∇ᵀvc(vout, cin, u⃗)", 1) => "evalat(vout, vin, ∇ᵀu⃗)"
+		],
+		[
+			("∂₃(evalat(vout, vin, w))", 0) => "∂₃(evalat(vout, vin, w))"
+		]
+	],
+	:TriC => [
+		[
+			("TriC.∇ᵀce(cout, e, TriC.ℳ(e, ein, u⃗))", 0) => "TriC.∇ᵀce(cout, e, TriC.ℳ(e, ein, u⃗))", 
+			("TriC.∇ᵀce(cout, e, TriC.ℳ(e, ein, u⃗))", 1) => "evalat(cout, cin, ∇ᵀu⃗)"
+		],
+		[
+			("∂₃(evalat(cout, cin, w))", 0) => "∂₃(evalat(cout, cin, w))"
+		]
+	],
+)
+
+# ╔═╡ f4fe6284-3ea3-4e57-af2b-664fda7066a3
+pschemes = Dict(
+	:TriA => [
+		[
+			("∂₃(evalat(vout, vin, p))", 0) => "∂₃(evalat(vout, vin, p))"
+		],
+		[
+			("-evalat(vout, vin, b)", 0) => "-evalat(vout, vin, b)"
+		]
+	],
+	:TriB => [
+		[
+			("∂₃(evalat(vout, vin, p))", 0) => "∂₃(evalat(vout, vin, p))"
+		],
+		[
+			("-evalat(vout, vin, b)", 0) => "-evalat(vout, vin, b)"
+		]
+	],
+	:TriC => [
+		[
+			("∂₃(evalat(cout, cin, p))", 0) => "∂₃(evalat(cout, cin, p))"
+		],
+		[
+			("-evalat(cout, cin, b)", 0) => "-evalat(cout, cin, b)"
+		]
 	]
 )
 
@@ -224,29 +424,6 @@ WideCell(md"""
 ##### Horizontal Momentum Transport Equation
 $(@bind vterms EqSchemes(schemes[_grid_t]))
 """; max_width=1500)
-
-# ╔═╡ 92853482-fd36-4fe1-b515-9c7696b71c95
-bschemes = Dict(
-	:TriA => [
-		["∂ₜ(evalat(vout, vin, b))"],
-		["TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", "evalat(vout, vin, ū⃗ᵀ∇b)+evalat(vout, vin, u⃗ᵀ∇b̄)"],
-		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"],
-		["𝕂ᵇ * -TriA.Δ(vout, vin, b)", "𝕂ᵇ * -evalat(vout, vin, Δb)", "𝕂ᵇ * evalat(vout, vin, Δ²b)"],
-	],
-	:TriB => [
-		["∂ₜ(evalat(vout, vin, b))"],
-		["TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", "TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", "evalat(vout, vin, u⃗ᵀ∇u⃗[iTH])"],
-		["evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"],
-		["𝕂ᵇ * -TriB.Δ(vout, v, TriB.Δ(v, vin, b))", "𝕂ᵇ * TriB.Δ(vout, vin, b)"],
-	],
-	#, , 
-	:TriC => [
-		["∂ₜ(evalat(cout, cin, b))"],
-		["TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)"],
-		["evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))"],
-		["𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", "𝕂ᵇ * TriC.Δ(cout, cin, b)"]
-	],
-)
 
 # ╔═╡ bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
 WideCell(
@@ -257,22 +434,6 @@ $(@bind bterms EqSchemes(bschemes[_grid_t]))
 """
 ; max_width=1500)
 
-# ╔═╡ 86ab6145-af2f-4e0d-90f9-4f5492f05ee1
-ηschemes = Dict(
-	:TriA => [
-		["∂ₜ(evalat(vout, vin, η))"],
-		["evalat(vout, vin, ∫∇ᵀu⃗dz)"]
-	],
-	:TriB => [
-		["∂ₜ(evalat(vout, vin, η))"],
-		["evalat(vout, vin, ∫∇ᵀu⃗dz)"]
-	],
-	:TriC => [
-		["∂ₜ(evalat(cout, cin, η))"],
-		["evalat(cout, cin, ∫∇ᵀu⃗dz)"]
-	],
-)
-
 # ╔═╡ cffd4061-d02d-4e42-bbca-cc990927824b
 WideCell(
 md"""
@@ -282,22 +443,6 @@ $(@bind ηterms EqSchemes(ηschemes[_grid_t]))
 """
 ; max_width=1500)
 
-# ╔═╡ 6c58a2e9-7b61-415e-b020-20b7170082e2
-cschemes = Dict(
-	:TriA => [
-		["TriA.∇ᵀvv(vout, vin, u⃗)", "evalat(vout, vin, ∇ᵀu⃗)"],
-		["∂₃(evalat(vout, vin, w))"]
-	],
-	:TriB => [
-		["TriB.∇ᵀvc(vout, cin, u⃗)", "evalat(vout, vin, ∇ᵀu⃗)"],
-		["∂₃(evalat(vout, vin, w))"]
-	],
-	:TriC => [
-		["TriC.∇ᵀce(cout, e, TriC.ℳ(e, ein, u⃗))", "evalat(cout, cin, ∇ᵀu⃗)"],
-		["∂₃(evalat(cout, cin, w))"]
-	],
-)
-
 # ╔═╡ c690b0a4-6130-4320-869f-2764fb681f3f
 WideCell(
 md"""
@@ -306,22 +451,6 @@ __Continuity Equation__:
 $(@bind wterms EqSchemes(cschemes[_grid_t]))
 """
 ; max_width=1500)
-
-# ╔═╡ f4fe6284-3ea3-4e57-af2b-664fda7066a3
-pschemes = Dict(
-	:TriA => [
-		["∂₃(evalat(vout, vin, p))"],
-		["-evalat(vout, vin, b)"]
-	],
-	:TriB => [
-		["∂₃(evalat(vout, vin, p))"],
-		["-evalat(vout, vin, b)"]
-	],
-	:TriC => [
-		["∂₃(evalat(cout, cin, p))"],
-		["-evalat(cout, cin, b)"]
-	]
-)
 
 # ╔═╡ b4024a03-2a30-4756-aebe-3f2e776cd8d6
 WideCell(
@@ -395,12 +524,6 @@ begin
 end;
   ╠═╡ =#
 
-# ╔═╡ 8ef7642b-a0f8-4948-a505-4da71e1dc2ef
-begin
-	RuntimeGeneratedFunctions.init(@__MODULE__)
-	eady_jac =  [@RuntimeGeneratedFunction(GridOperatorAnalysis, eady_jac_ex[i,j]) for i=1:size(eady_jac_ex,1), j=1:size(eady_jac_ex,2)]
-end;
-
 # ╔═╡ 1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 Symbolics.@variables _Ri _le _g _f₀ _N² _𝕂ᵘ _𝕂ᵇ _θU _β k l
 
@@ -419,34 +542,18 @@ end;
 # ╔═╡ 0d0a0e92-2d63-4745-9114-8a10c5be58de
 begin
 	@variables Im
-	u⃗ = [pflow.u⃗[iTH, vin[1], vin[2], vin[3]] for iTH=1:2]
-	b = pflow.b[vin[1], vin[2], vin[3]]
-	η = pflow.η[vin[1], vin[2], vin[3]]
-	w = pflow.w[vin[1], vin[2], vin[3]]
-	p = pflow.p[vin[1], vin[2], vin[3]]
-	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[vin[1], vin[2], vin[3]]
-	
-	# this is still dependent on TriA
-	#∇ᵀu⃗ = let
-	#	a = exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
-	#	ϵ * (real(a) + Im * imag(a))
-	#end
-	#∇ᵀu⃗ = ϵ * Im * [k; l]' * fflow.u⃗[:, 1]
-	#Δu⃗ = let
-	#	as = []
-	#	for iTH=1:2
-	#		a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
-	#		push!(as, ϵ * (real(a) + Im * imag(a)))
-	#	end
-	#	as
-	#end
-	#Δu⃗ = [-(k^2 + l^2) * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
-	#Δ²u⃗ = [(k^2 + l^2)^2 * ϵ * fflow.u⃗[iTH, 1] for iTH=1:2]
-	#Δb = -(k^2 + l^2) * ϵ * fflow.b[1]
-	#Δ²b = (k^2 + l^2)^2 * ϵ * fflow.b[1]
-	#∇p = ϵ * Im * [k; l] * fflow.p[1]
-	#∇η = ϵ * Im * [k; l] * fflow.η[1]
-	#ū⃗ᵀ∇u⃗ = ϵ * bflow.u⃗[:,0,0,]' * Im * [k; l] * fflow.u⃗[:,1]'
+	upin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? cin : ein)
+	spin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? vin : cin)
+	u⃗ = if grid_t == Val(:TriC)
+		pflow.u⃗[upin[1], upin[2], upin[3]]
+	else
+		[pflow.u⃗[iTH, upin[1], upin[2], upin[3]] for iTH=1:2]
+	end
+	b = pflow.b[spin[1], spin[2], spin[3]]
+	η = pflow.η[spin[1], spin[2], spin[3]]
+	w = pflow.w[spin[1], spin[2], spin[3]]
+	p = pflow.p[spin[1], spin[2], spin[3]]
+	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[spin[1], spin[2], spin[3]]
 	u⃗ᵀ∇b̄ = let
 		_u⃗  = ϵ * [dflow.u⃗[iTH, vin[1], vin[2], vin[3]] for iTH=1:2]
 		∇b̄ = TriA.∇vv(VertexIndex((0,0,1)), vin, bflow.b[vin[1], vin[2], vin[3]])
@@ -464,17 +571,6 @@ end;
 
 # ╔═╡ 61150eb4-c9ce-4fd8-8314-780b9c1c29b6
 u⃗⊥ = [-u⃗[2]; u⃗[1]];
-
-# ╔═╡ dce27137-262a-452b-a7e4-0093c94cb5bf
-_∇ᵀu⃗ = if grid_t == Val(:TriA)
-	ϵ * Im * [k; l]' * fflow.u⃗[:, 1]
-elseif grid_t == Val(:TriB)
-	ϵ * Im * [k; l]' * [1//2 * (fflow.u⃗[iTH, 1] + fflow.u⃗[iTH, 2]) for iTH=1:2]
-elseif grid_t == Val(:TriC)
-	
-else
-	1
-end
 
 # ╔═╡ 0ad8eba1-f992-4f24-aa90-38ca629f8c72
 ϕ = let
@@ -505,96 +601,6 @@ rtrig = let
 	end
 	SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(SymbolicUtils.RestartedChain([rcos, rsin])))
 end
-
-# ╔═╡ 3ff311ec-aaaf-42f1-b11a-25be4632192c
-function exactop(iH, cp_t_out, expr)
-	expr = substitute(expr, Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le))
-	expr = Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1))
-	fexpr = GridOperatorAnalysis.fourier_transform_expression(iH, cp_t_out, expr; dflow, fflow, ϕ)
-	fexpr = Symbolics.simplify(fexpr; expand=true, rewriter=rtrig)
-	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
-	Symbolics.simplify(fexpr; expand=true)
-end
-
-# ╔═╡ de5471e8-9965-4319-9382-09bbc0fe9f2f
-@show exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
-
-# ╔═╡ 2ced61a3-8306-423f-b0f7-71ab9906186a
-function exactops(grid_t)
-	if grid_t == Val(:TriA)
-		∇ᵀu⃗ = let
-			a = exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
-			ϵ * (real(a) + Im * imag(a))
-		end
-		Δu⃗ = let
-			as = []
-			for iTH=1:2
-				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
-				push!(as, ϵ * (real(a) + Im * imag(a)))
-			end
-			as
-		end
-		Δ²u⃗ = let
-			as = []
-			for iTH=1:2
-				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, u⃗[iTH])))
-				push!(as, ϵ * (real(a) + Im * imag(a)))
-			end
-		end
-		Δb = let
-			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, b))
-			ϵ * (real(a) + Im * imag(a))
-		end
-		Δ²b = let
-			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, b)))
-			ϵ * (real(a) + Im * imag(a))
-		end
-		∇p = let
-			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, p)
-			as = []
-			for iTH=1:2
-				a = exactop(1, :vertex, expr[iTH])
-				push!(as, ϵ * (real(a) + Im * imag(a)))
-			end
-			as
-		end
-		∇η = let
-			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, η)
-			as = []
-			for iTH=1:2
-				a = exactop(1, :vertex, expr[iTH])
-				push!(as, ϵ * (real(a) + Im * imag(a)))
-			end
-			as
-		end
-		u⃗ᵀ∇u⃗ = let
-			as = []
-			expr = TriA.u⃗ᵀ∇(VertexIndex((0,0,1)), vin, u⃗, u⃗)
-			for iTH=1:2
-				a = exactop(1, :vertex, expr[iTH])
-				push!(as, ϵ * (real(a) + Im * imag(a)))
-			end
-			as
-		end
-		u⃗ᵀ∇b = let
-			a = exactop(1, :vertex, TriA.u⃗∇ᵀ(VertexIndex((0,0,1)), vin, u⃗, b))
-			ϵ * (real(a) + Im * imag(a))
-		end
-		(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b)
-	elseif grid_t == Val(:TriB)
-		(;)
-	elseif grid_t == Val(:TriC)
-		(;)
-	else
-		(;)
-	end
-end
-
-# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
-(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
-
-# ╔═╡ d0ec9183-537a-402d-9805-d7356001b91c
-@show Δu⃗
 
 # ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
 # ╠═╡ disabled = true
@@ -1072,21 +1078,31 @@ function assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ, �
 	(; state, momentum_transport_eq, hydrostatic_balance_eq, continuity_eq, buoyancy_transport_eq, surface_elevation_eq) = sys
 	# horizontal momentum transport equation
 	for iH=1:dims(colpt_type(grid_t, :momentum_transport_eq))
-		for iTH=1:2
+		if colpt_type(grid_t, :u⃗) == :edge
 			ts = []
-			for t in collect(values(vterms))
-				t = replace(t, "iTH" => "$iTH", "vout" => "VertexIndex((0,0,$iH))", "𝕂ᵘ" => "$𝕂ᵘ")
+			for t in collect(first.(values(vterms)))
+				t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))", "𝕂ᵘ" => "$𝕂ᵘ")
 				et = @eval $(Meta.parse(t))
 				push!(ts, et)
 			end
-			push!(momentum_transport_eq[iTH, iH], ts...)
+			push!(momentum_transport_eq[iH], ts...)
+		else
+			for iTH=1:2
+				ts = []
+				for t in collect(first.(values(vterms)))
+					t = replace(t, "iTH" => "$iTH", "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))", "𝕂ᵘ" => "$𝕂ᵘ")
+					et = @eval $(Meta.parse(t))
+					push!(ts, et)
+				end
+				push!(momentum_transport_eq[iTH, iH], ts...)
+			end
 		end
 	end
 	# horizontal buoyancy transport equation
 	for iH=1:dims(colpt_type(grid_t, :buoyancy_transport_eq))
 		ts = []
-		for t in collect(values(bterms))
-			t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "𝕂ᵇ" => "$𝕂ᵇ")
+		for t in collect(first.(values(bterms)))
+			t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))", "𝕂ᵇ" => "$𝕂ᵇ")
 			et = @eval $(Meta.parse(t))
 			push!(ts, et)
 		end
@@ -1095,8 +1111,8 @@ function assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ, �
 	# surface elevation equation
 	for iH=1:dims(colpt_type(grid_t, :surface_elevation_eq))
 		ts = []
-		for t in collect(values(ηterms))
-			t = replace(t, "vout" => "VertexIndex((0,0,$iH))")
+		for t in collect(first.(values(ηterms)))
+			t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))")
 			et = @eval $(Meta.parse(t))
 			push!(ts, et)
 		end
@@ -1105,8 +1121,8 @@ function assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ, �
 	# continuity equation
 	for iH=1:dims(colpt_type(grid_t, :continuity_eq))
 		ts = []
-		for t in collect(values(wterms))
-			t = replace(t, "vout" => "VertexIndex((0,0,$iH))")
+		for t in collect(first.(values(wterms)))
+			t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))")
 			et = @eval $(Meta.parse(t))
 			push!(ts, et)
 		end
@@ -1115,8 +1131,8 @@ function assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ, �
 	# hydrostatic balance equation
 	for iH=1:dims(colpt_type(grid_t, :hydrostatic_balance_eq))
 		ts = []
-		for t in collect(values(pterms))
-			t = replace(t, "vout" => "VertexIndex((0,0,$iH))")
+		for t in collect(first.(values(pterms)))
+			t = replace(t, "vout" => "VertexIndex((0,0,$iH))", "cout" => "CellIndex((0,0,$iH))", "eout" => "EdgeIndex((0,0,$iH))")
 			et = @eval $(Meta.parse(t))
 			push!(ts, et)
 		end
@@ -1135,8 +1151,101 @@ begin
 	assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ)
 end;
 
+# ╔═╡ 3e557bf0-c8aa-49d5-8860-03465dc06731
+function lowestorder(expr)
+	expr = expand(expr)
+	lowexpr = 0
+	ps = [(0,0),(1,0), (0,1), (2,0), (1,1), (0,2)]
+	for (pk, pl) in ps
+		kexpr  = taylor_coeff(expr, k, pk)
+		klexpr = taylor_coeff(kexpr, l, pl)
+		lowexpr += klexpr * k^pk * l^pl
+	end
+	lowexpr
+end
+
+# ╔═╡ 3ff311ec-aaaf-42f1-b11a-25be4632192c
+function exactop(iH, cp_t_out, expr)
+	expr = substitute(expr, Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le))
+	expr = Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1))
+	fexpr = GridOperatorAnalysis.fourier_transform_expression(iH, cp_t_out, expr; dflow, fflow, ϕ)
+	fexpr = Symbolics.simplify(fexpr; expand=true, rewriter=rtrig)
+	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
+	Symbolics.simplify(fexpr; expand=true)
+end
+
+# ╔═╡ 4efa8fb3-a6a9-4e73-8d61-8c7c45f0d35f
+function exactop(fexpr)
+	fexpr = Symbolics.simplify(fexpr; expand=true, rewriter=rtrig)
+	fexpr = Symbolics.simplify(fexpr)
+	fexpr = lowestorder(fexpr)
+	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
+	Symbolics.simplify(fexpr; expand=true)
+end
+
 # ╔═╡ 5ad386c4-1dfa-4c20-b7ab-e6a2d13ae1ce
-fsys = fourier_transform_sys(grid_t, sys; dflow, fflow, ϕ, subs=Dict{Any, Any}(Im=>im));
+begin
+	fsys = fourier_transform_sys(grid_t, sys; dflow, fflow, ϕ, subs=Dict{Any, Any}(Im=>im))
+	# horizontal momentum transport
+	for (i, islimit) in enumerate(collect(last.(values(vterms))))
+		momentum_transport_eq = fsys.momentum_transport_eq
+		for iH=1:dims(colpt_type(grid_t, :momentum_transport_eq))
+			if grid_t == Val(:TriC)
+				if islimit == 1
+					expr = momentum_transport_eq[iH][i]
+					momentum_transport_eq[iH][i] = exactop(expr)
+				end
+			else
+				for iTH=1:2
+					if islimit == 1
+						expr = momentum_transport_eq[iTH, iH][i]
+						momentum_transport_eq[iTH, iH][i] = exactop(expr)
+					end
+				end
+			end
+		end
+	end
+	# horizontal buoyancy transport
+	for (i, islimit) in enumerate(collect(last.(values(bterms))))
+		buoyancy_transport_eq = fsys.buoyancy_transport_eq
+		for iH=1:dims(colpt_type(grid_t, :buoyancy_transport_eq))
+			if islimit == 1
+				expr = buoyancy_transport_eq[iH][i]
+				buoyancy_transport_eq[iH][i] = exactop(expr)
+			end
+		end
+	end
+	# surface elevation
+	for (i, islimit) in enumerate(collect(last.(values(ηterms))))
+		surface_elevation_eq = fsys.surface_elevation_eq
+		for iH=1:dims(colpt_type(grid_t, :surface_elevation_eq))
+			if islimit == 1
+				expr = surface_elevation_eq[iH][i]
+				surface_elevation_eq[iH][i] = exactop(expr)
+			end
+		end
+	end
+	# continuity equation
+	for (i, islimit) in enumerate(collect(last.(values(wterms))))
+		continuity_eq = fsys.continuity_eq
+		for iH=1:dims(colpt_type(grid_t, :continuity_eq))
+			if islimit == 1
+				expr = continuity_eq[iH][i]
+				continuity_eq[iH][i] = exactop(expr)
+			end
+		end
+	end
+	# hydrostatic balance equation
+	for (i, islimit) in enumerate(collect(last.(values(pterms))))
+		hydrostatic_balance_eq = fsys.hydrostatic_balance_eq
+		for iH=1:dims(colpt_type(grid_t, :hydrostatic_balance_eq))
+			if islimit == 1
+				expr = hydrostatic_balance_eq[iH][i]
+				hydrostatic_balance_eq[iH][i] = exactop(expr)
+			end
+		end
+	end
+end;
 
 # ╔═╡ a77404c3-511d-4ae6-9e6c-2da0cf490ee9
 # ╠═╡ disabled = true
@@ -1144,11 +1253,8 @@ fsys = fourier_transform_sys(grid_t, sys; dflow, fflow, ϕ, subs=Dict{Any, Any}(
 fsys.momentum_transport_eq[2,1][7] = (k^2 + l^2) * fflow.u⃗[2,1] * _𝕂ᵘ
   ╠═╡ =#
 
-# ╔═╡ dd258a1b-0efb-48d1-9463-6ba92af5ba24
-@show fsys.momentum_transport_eq[1,1][7]
-
 # ╔═╡ a2687cd8-4e59-414a-8560-e8293935e6b0
-jac = lowering_sys(grid_t, fsys, fflow; Nz=8);
+jac = lowering_sys(grid_t, fsys, fflow; Nz=16);
 
 # ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
 fun = let
@@ -1174,7 +1280,7 @@ Ks, iωs = let
 		l = K * sin(θ)
 
 		#jac = [ComplexF64(eady_jac[i,j](k, l, le, Ri, N², g, f₀, 𝕂ᵘ, 𝕂ᵇ, θU, β)) for i=1:size(eady_jac,1), j=1:size(eady_jac,2)]
-		jac = [-Symbolics.unwrap(fun[i,j](k,l, Ri, le, f₀, g, N², 𝕂ᵘ, 𝕂ᵇ, θU)) for i=1:size(fun,1), j=1:size(fun,2)]
+		jac = [-ComplexF64(fun[i,j](k,l, Ri, le, f₀, g, N², 𝕂ᵘ, 𝕂ᵇ, θU)) for i=1:size(fun,1), j=1:size(fun,2)]
 
         vals, vecs = eigen(jac)
         push!(iωs, vals[end])
@@ -1216,6 +1322,144 @@ let
 	f
 end
 
+# ╔═╡ 2ced61a3-8306-423f-b0f7-71ab9906186a
+function exactops(grid_t)
+	if grid_t == Val(:TriA)
+		∇ᵀu⃗ = let
+			a = exactop(1, :vertex, TriA.∇ᵀvv(VertexIndex((0,0,1)), vin, u⃗))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δu⃗ = let
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		Δ²u⃗ = let
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, u⃗[iTH])))
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+		end
+		Δb = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δ²b = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, b)))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		∇p = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, p)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		∇η = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, η)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇u⃗ = let
+			as = []
+			expr = TriA.u⃗ᵀ∇(VertexIndex((0,0,1)), vin, u⃗, u⃗)
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇b = let
+			a = exactop(1, :vertex, TriA.u⃗∇ᵀ(VertexIndex((0,0,1)), vin, u⃗, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b)
+	elseif grid_t == Val(:TriB)
+		∇ᵀu⃗ = let
+			a = exactop(1, :vertex, TriA.∇ᵀvc(VertexIndex((0,0,1)), cin, u⃗))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δu⃗ = let
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, u⃗[iTH]))
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		Δ²u⃗ = let
+			as = []
+			for iTH=1:2
+				bs = []
+				for iH=1:dims(:cell)
+					b = exactop(1, :vertex, TriA.Δ(CellIndex((0,0,iH)), c, TriA.Δ(c, vin, u⃗[iTH])))
+					push!(bs, ϵ * (real(a) + Im * imag(a)))
+				end
+			end
+		end
+		Δb = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), vin, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		Δ²b = let
+			a = exactop(1, :vertex, TriA.Δ(VertexIndex((0,0,1)), v, TriA.Δ(v, vin, b)))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		∇p = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, p)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		∇η = let
+			expr = TriA.∇vv(VertexIndex((0,0,1)), vin, η)
+			as = []
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇u⃗ = let
+			as = []
+			expr = TriA.u⃗ᵀ∇(VertexIndex((0,0,1)), vin, u⃗, u⃗)
+			for iTH=1:2
+				a = exactop(1, :vertex, expr[iTH])
+				push!(as, ϵ * (real(a) + Im * imag(a)))
+			end
+			as
+		end
+		u⃗ᵀ∇b = let
+			a = exactop(1, :vertex, TriA.u⃗∇ᵀ(VertexIndex((0,0,1)), vin, u⃗, b))
+			ϵ * (real(a) + Im * imag(a))
+		end
+		(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b)
+	elseif grid_t == Val(:TriC)
+		(;)
+	else
+		(;)
+	end
+end
+
+# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
+# ╠═╡ disabled = true
+#=╠═╡
+(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
+  ╠═╡ =#
+
 # ╔═╡ Cell order:
 # ╠═500f352c-6e16-11f0-215d-4f5a3075cb33
 # ╟─534dfd2f-f7e5-4253-83dc-0be9e94cba01
@@ -1231,29 +1475,23 @@ end
 # ╠═0ef5eb5f-6c6c-4ecc-87bd-16247f9056e4
 # ╠═0d0a0e92-2d63-4745-9114-8a10c5be58de
 # ╠═ee93d7e8-14a0-4021-8f3d-ddf14a79d608
-# ╠═d0ec9183-537a-402d-9805-d7356001b91c
-# ╠═dce27137-262a-452b-a7e4-0093c94cb5bf
-# ╠═de5471e8-9965-4319-9382-09bbc0fe9f2f
-# ╠═3ff311ec-aaaf-42f1-b11a-25be4632192c
-# ╠═2ced61a3-8306-423f-b0f7-71ab9906186a
-# ╟─f05d338f-5ebf-4ff0-a8bc-86f1a14d0360
 # ╠═4767f71a-fd13-4c26-8ec4-bf16ac6028a4
 # ╠═f0f59948-54d8-477e-b2cb-595f68ca13b2
 # ╠═e9c5a7ef-6412-4b59-9aa7-d240277550e0
 # ╟─6e5eb153-8d92-47f9-bee5-8f823abd11e9
 # ╟─826aa7f7-c0f1-4dd4-978f-dc093f970d84
 # ╟─b1a33624-23c1-4102-85b7-1e63980f3bf2
-# ╟─51d642b5-b044-4c2a-b7e0-aab048231544
-# ╟─29bef65a-0414-4304-a718-189b6885d2e3
 # ╠═61150eb4-c9ce-4fd8-8314-780b9c1c29b6
-# ╟─bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
+# ╟─29bef65a-0414-4304-a718-189b6885d2e3
 # ╟─92853482-fd36-4fe1-b515-9c7696b71c95
-# ╟─cffd4061-d02d-4e42-bbca-cc990927824b
 # ╟─86ab6145-af2f-4e0d-90f9-4f5492f05ee1
-# ╟─c690b0a4-6130-4320-869f-2764fb681f3f
 # ╟─6c58a2e9-7b61-415e-b020-20b7170082e2
-# ╟─b4024a03-2a30-4756-aebe-3f2e776cd8d6
 # ╟─f4fe6284-3ea3-4e57-af2b-664fda7066a3
+# ╟─51d642b5-b044-4c2a-b7e0-aab048231544
+# ╟─bbf8aa4b-0b66-40b0-b5ab-56f2b4baa641
+# ╟─cffd4061-d02d-4e42-bbca-cc990927824b
+# ╟─c690b0a4-6130-4320-869f-2764fb681f3f
+# ╟─b4024a03-2a30-4756-aebe-3f2e776cd8d6
 # ╟─42b320c0-d9a3-4a84-bcc6-3498d71ceec8
 # ╟─07e1fa2c-7ef0-4a22-9c75-6640a626fe2c
 # ╟─694e01ee-5b10-44e4-a477-e8593ededa8c
@@ -1261,14 +1499,12 @@ end
 # ╠═4867203f-402e-4d3a-8ad0-ef0ba8478ed1
 # ╠═5ad386c4-1dfa-4c20-b7ab-e6a2d13ae1ce
 # ╠═a77404c3-511d-4ae6-9e6c-2da0cf490ee9
-# ╠═dd258a1b-0efb-48d1-9463-6ba92af5ba24
 # ╠═a2687cd8-4e59-414a-8560-e8293935e6b0
 # ╟─cf11e62e-ee93-4b2f-9cdc-2cb228ca040c
 # ╟─c29f6ae0-e69b-4ad8-8615-8dd9a4aee408
 # ╠═28470719-44cf-4b6a-a515-29f7f6a4acb2
 # ╠═7c1d69bf-8612-4072-95b5-27b57e59b2ac
 # ╠═944eb1fc-3207-48fe-bec3-97f73e7a523a
-# ╠═8ef7642b-a0f8-4948-a505-4da71e1dc2ef
 # ╠═ab60e360-e826-496d-b382-e868f640d85c
 # ╠═1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 # ╠═0ad8eba1-f992-4f24-aa90-38ca629f8c72
@@ -1302,3 +1538,7 @@ end
 # ╠═abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
 # ╟─c9ac2630-ea0e-4048-a161-8c9f925d1d20
 # ╠═d35d5d13-d7a2-44ee-8855-be4aa31edf4c
+# ╠═3e557bf0-c8aa-49d5-8860-03465dc06731
+# ╠═3ff311ec-aaaf-42f1-b11a-25be4632192c
+# ╠═4efa8fb3-a6a9-4e73-8d61-8c7c45f0d35f
+# ╠═2ced61a3-8306-423f-b0f7-71ab9906186a

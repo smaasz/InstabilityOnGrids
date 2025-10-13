@@ -24,7 +24,7 @@ begin
 	using CairoMakie
 	import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z , sqrt3
 	import GridOperatorAnalysis: TriAFlow, TriAFlowFT, TriBFlow, TriBFlowFT, TriCFlow, TriCFlowFT
-	import GridOperatorAnalysis: colpt_type, colptidx, compute_phases, sqrt3subs
+	import GridOperatorAnalysis: colpt_type, colptidx, compute_phases, sqrt3_subs
 	import GridOperatorAnalysis: fourier_transform_expression
 	import GridOperatorAnalysis.TriA
 	import GridOperatorAnalysis.TriB
@@ -208,6 +208,20 @@ __Discretization scheme for the momentum transport__:
 $(@bind hst_scheme select_hst_scheme(grid_t))
 """
 
+# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
+#=╠═╡
+fhst = fhsts[inputs.biH]
+  ╠═╡ =#
+
+# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
+# ╠═╡ disabled = true
+#=╠═╡
+fhst = let
+	(; biH) = inputs
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
+end;
+  ╠═╡ =#
+
 # ╔═╡ 698f9004-f56b-41c0-b6a6-b55c505fb1a8
 md"""
 ### Fourier Symbols
@@ -276,34 +290,6 @@ begin
     floataside(stuff; kwargs...) = floataside(md"""$(stuff)"""; kwargs...)
 end;
 
-# ╔═╡ e322d734-1c1a-4ce1-a147-9f8420c64203
-getflow(grid_t) =
-	if grid_t == :TriA
-		TriAFlow
-	elseif grid_t == :TriB
-		TriBFlow
-	elseif grid_t == :TriC
-		TriCFlow
-	end
-
-# ╔═╡ 8ae523f0-1eeb-4d62-b089-502c52dd1277
-begin
-	flow_t = getflow(grid_t)
-	if grid_t == :TriC
-		@variables (du⃗(t,z))[-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
-	else
-		@variables (du⃗(t,z))[1:2,-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
-	end
-	 @variables begin
-        (db(t,z))[-nS:nS,-nS:nS, 1:dims(colpt_type(flow_t, :b))]
-        (dη(t))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :η))]
-        (∫∇ᵀdu⃗dz(t,z))[-nS:nS,-nS:nS, 1:dims(colpt_type(flow_t, :∫∇ᵀu⃗dz))]
-        (dw(t,z))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :w))]
-        (dp(t,z))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :p))]
-    end
-    dflow = flow_t{nS}(; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
-end;
-
 # ╔═╡ e18fbb3e-02cb-4add-ab00-9e0cc7ae935f
 # ╠═╡ disabled = true
 #=╠═╡
@@ -341,6 +327,34 @@ floataside(
 	"""
 end; top=300)
   ╠═╡ =#
+
+# ╔═╡ e322d734-1c1a-4ce1-a147-9f8420c64203
+getflow(grid_t) =
+	if grid_t == :TriA
+		TriAFlow
+	elseif grid_t == :TriB
+		TriBFlow
+	elseif grid_t == :TriC
+		TriCFlow
+	end
+
+# ╔═╡ 8ae523f0-1eeb-4d62-b089-502c52dd1277
+begin
+	flow_t = getflow(grid_t)
+	if grid_t == :TriC
+		@variables (du⃗(t,z))[-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
+	else
+		@variables (du⃗(t,z))[1:2,-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
+	end
+	 @variables begin
+        (db(t,z))[-nS:nS,-nS:nS, 1:dims(colpt_type(flow_t, :b))]
+        (dη(t))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :η))]
+        (∫∇ᵀdu⃗dz(t,z))[-nS:nS,-nS:nS, 1:dims(colpt_type(flow_t, :∫∇ᵀu⃗dz))]
+        (dw(t,z))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :w))]
+        (dp(t,z))[-nS:nS, -nS:nS, 1:dims(colpt_type(flow_t, :p))]
+    end
+    dflow = flow_t{nS}(; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
+end;
 
 # ╔═╡ 3782fb16-26b7-4edd-8591-ef119b1cabef
 getflowft(grid_t) =
@@ -456,32 +470,6 @@ function gethst(grid_t, hst_scheme)
 	end
 end
 
-# ╔═╡ f80621ff-53de-4b21-b314-b8d4bbdbcc61
-hsts = let
-	cpu⃗ = colpts[colpt_type(flow_t, :u⃗)]
-	cpb = colpts[colpt_type(flow_t, :b)]
-	pu⃗ = grid_t == :TriC ? bflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] : [bflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] for iTH=1:2]
-	pb =  bflow.b[cpb[1], cpb[2], cpb[3]] .+ ϵ*dflow.b[cpb[1], cpb[2], cpb[3]]
-	u⃗∇ᵀ = gethst(grid_t, hst_scheme)
-	hsts = []
-	for biH=1:dims(colpt_type(flow_t, :b))
-		hst = u⃗∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpu⃗, cpb, pu⃗, pb)
-		hst = substitute(hst, GridOperatorAnalysis.sqrt3_subs)
-		push!(hsts, hst)
-	end
-	hsts
-end;
-
-# ╔═╡ 03ccdcf0-5dcb-4257-ace8-8f9ce22dee3e
-lhsts = [
-	expand(taylor_coeff(expand(hst), ϵ, 1)) for hst in hsts
-];
-
-# ╔═╡ 16bb4e26-9d82-4718-881f-66450ce90bf1
-fhsts = [
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
-];
-
 # ╔═╡ 391de831-feea-436e-9be5-15686d9c9155
 md"""
 ### Rewriter
@@ -522,7 +510,7 @@ sfhmts = let
 			end
 			fhmt = substitute.(fhmt, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M² ))) 
 			fhmt = expand.(fhmt)
-			fhmt = substitute.(fhmt, Ref(sqrt3subs))
+			fhmt = substitute.(fhmt, Ref(sqrt3_subs))
 		end
 		if colpt_t == :edge
 			for jH = 1:d
@@ -557,7 +545,7 @@ begin
 			if doapprox
 				f .= substitute.(f, Ref(Dict(a=>2/sqrt3 * h)))
 				f .= simplify.(f; expand=true)
-				f .= substitute.(f, Ref(sqrt3subs))
+				f .= substitute.(f, Ref(sqrt3_subs))
 				f .= simplify.(f; expand=true)
 			else
 				f = substitute.(f, Ref(Dict(sqrt3=> 2 * h/a)))
@@ -583,7 +571,7 @@ begin
 		if doapprox
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
 			F .= simplify.(F; expand=true)
-			F .= substitute.(F, Ref(sqrt3subs))
+			F .= substitute.(F, Ref(sqrt3_subs))
 		else
 			F = expand(F)
 			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
@@ -592,6 +580,33 @@ begin
 	Fn = simplify.(Fn ./ K; expand=true)
 end
 
+# ╔═╡ f80621ff-53de-4b21-b314-b8d4bbdbcc61
+hsts = let
+	cpu⃗ = colpts[colpt_type(flow_t, :u⃗)]
+	cpb = colpts[colpt_type(flow_t, :b)]
+	pu⃗ = grid_t == :TriC ? bflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] : [bflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] for iTH=1:2]
+	pb =  bflow.b[cpb[1], cpb[2], cpb[3]] .+ ϵ*dflow.b[cpb[1], cpb[2], cpb[3]]
+	u⃗∇ᵀ = gethst(grid_t, hst_scheme)
+	hsts = []
+	for biH=1:dims(colpt_type(flow_t, :b))
+		b = (1+h^2*K^2/18)*pb# - h^2/18*TriC.Δ(cpb, cpb, pb)
+		hst = u⃗∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpu⃗, cpb, pu⃗, b)
+		hst = substitute(hst, GridOperatorAnalysis.sqrt3_subs)
+		push!(hsts, hst)
+	end
+	hsts
+end;
+
+# ╔═╡ 03ccdcf0-5dcb-4257-ace8-8f9ce22dee3e
+lhsts = [
+	expand(taylor_coeff(expand(hst), ϵ, 1)) for hst in hsts
+];
+
+# ╔═╡ 16bb4e26-9d82-4718-881f-66450ce90bf1
+fhsts = [
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
+];
+
 # ╔═╡ 78fa487a-5bdf-4aa3-b9c5-25d856697fae
 begin
 	sfbs, sfus = let
@@ -599,7 +614,11 @@ begin
 		colpt_t_u = colpt_type(flow_t, :u⃗)
 		db = dims(colpt_t_b)
 		du = dims(colpt_t_u)
-		(zeros(Complex{Symbolics.Num},db,db), zeros(Complex{Symbolics.Num},db,du,2))
+		if colpt_type(flow_t, :u⃗) == :edge
+			(zeros(Complex{Symbolics.Num},db,db), zeros(Complex{Symbolics.Num},db,du))
+		else
+			(zeros(Complex{Symbolics.Num},db,db), zeros(Complex{Symbolics.Num},db,du,2))
+		end
 	end
 	for iH=1:dims(colpt_type(flow_t, :b))
 		fhst = let
@@ -611,7 +630,8 @@ begin
 			end
 			fhst = substitute.(fhst, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M² ))) 
 			fhst = expand.(fhst)
-			fhst = substitute.(fhst, Ref(sqrt3subs))
+			fhst = substitute.(fhst, Ref(sqrt3_subs))
+			fhst = expand.(fhst)
 		end
 		for jH=1:dims(colpt_type(flow_t, :b))
 			b = fflow.b[jH]
@@ -619,10 +639,16 @@ begin
 			sfbs[iH, jH] = simplify(sfb; expand=true)
 		end
 		for jH=1:dims(colpt_type(flow_t, :u⃗))
-			for jTH=1:2
-				u = fflow.u⃗[jTH, jH]
+			if colpt_type(flow_t, :u⃗) == :edge
+				u = fflow.u⃗[jH]
 				sfu = taylor_coeff(fhst, u, 1)
-				sfus[iH, jH, jTH] = simplify(sfu; expand=true)
+				sfus[iH, jH] = simplify(sfu; expand=true)
+			else
+				for jTH=1:2
+					u = fflow.u⃗[jTH, jH]
+					sfu = taylor_coeff(fhst, u, 1)
+					sfus[iH, jH, jTH] = simplify(sfu; expand=true)
+				end
 			end
 		end
 	end
@@ -633,15 +659,34 @@ S = let
 	@variables k̃, l̃
 	F = sfbs ./ Ū
 	F = substitute.(F, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-	if doapprox
+	if doapproxs
 		F = substitute.(F, Ref(Dict(a=>2/GridOperatorAnalysis.sqrt3 * h)))
 		F = simplify.(F; expand=true)
-		F = substitute.(F, Ref(sqrt3subs))
+		F = substitute.(F, Ref(sqrt3_subs))
 	else
 		F = substitute.(F, Ref(Dict(GridOperatorAnalysis.sqrt3=> 2 * h/a)))
 	end
 	F = simplify.(F; expand=true)
 	F = k̃ * simplify.(taylor_coeff.(F, k̃, 1)) + l̃ * simplify.(taylor_coeff.(F, l̃, 1))
+end
+
+# ╔═╡ 70137bf3-0f04-4863-ad91-2087ae3f1d3f
+begin
+	@variables K̃
+	Fb = let
+		F = sfbs./ Ū
+		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		if doapproxs
+			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
+			F .= substitute.(F, Ref(Dict(h=> K̃ / K, sin(θU)^2=>1-cos(θU)^2, sin(θU)^4=>(1-cos(θU)^2)^2))) #
+			F .= simplify.(F; expand=true)
+			F .= substitute.(F, Ref(sqrt3_subs))
+		else
+			F = expand.(F)
+			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
+		end
+	end
+	@show Fb = simplify.(Fb ./ K; expand=true)
 end
 
 # ╔═╡ 37ecb266-dd5f-4d79-8975-d2ab091c70ff
@@ -650,10 +695,10 @@ begin
 		@variables k̃, l̃
 		F = sfus ./ M²
 		F = substitute.(F, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-		if doapprox
+		if doapproxs
 			F = substitute.(F, Ref(Dict(a=>2/GridOperatorAnalysis.sqrt3 * h)))
 			F = simplify.(F; expand=true)
-			F = substitute.(F, Ref(sqrt3subs))
+			F = substitute.(F, Ref(sqrt3_subs))
 		else
 			F = substitute.(F, Ref(Dict(GridOperatorAnalysis.sqrt3=> 2 * h/a)))
 		end
@@ -805,20 +850,6 @@ let
 	f
 end
 
-# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
-# ╠═╡ disabled = true
-#=╠═╡
-fhst = let
-	(; biH) = inputs
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
-end;
-  ╠═╡ =#
-
-# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
-#=╠═╡
-fhst = fhsts[inputs.biH]
-  ╠═╡ =#
-
 # ╔═╡ Cell order:
 # ╟─b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
 # ╠═f59a5438-8d5e-11f0-13fa-d9c703e5f87f
@@ -866,6 +897,7 @@ fhst = fhsts[inputs.biH]
 # ╟─99c92534-3092-4995-8044-d8001aad8f5c
 # ╠═78fa487a-5bdf-4aa3-b9c5-25d856697fae
 # ╠═25cefa7a-d3a8-4c09-971f-5be726f13ca3
+# ╠═70137bf3-0f04-4863-ad91-2087ae3f1d3f
 # ╠═37ecb266-dd5f-4d79-8975-d2ab091c70ff
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 # ╟─8eea87eb-048e-4436-9d20-3bcc9e76c7b7
