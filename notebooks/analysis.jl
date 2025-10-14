@@ -28,7 +28,7 @@ begin
 	import GridOperatorAnalysis: construct_flowΔxz, construct_flowkz
 	import GridOperatorAnalysis: construct_lcc_sys, fourier_transform_sys, lowering_sys
 	import GridOperatorAnalysis: VertexIndex, EdgeIndex, CellIndex
-	import GridOperatorAnalysis: t, z, nS, evalat, dims, v, c, e
+	import GridOperatorAnalysis: t, z, nS, evalat, dims, v, c, e, ∑, VE, n⃗ev
 	import GridOperatorAnalysis: TriAFlow, TriBFlow, TriCFlow, HexCFlow
 	import GridOperatorAnalysis: TriA, TriB, TriC, HexC
 	import GridOperatorAnalysis
@@ -110,6 +110,12 @@ dflow = let
     end
     construct_flowΔxz(grid_t, nS; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
 end;
+
+# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
+# ╠═╡ disabled = true
+#=╠═╡
+(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
+  ╠═╡ =#
 
 # ╔═╡ e9c5a7ef-6412-4b59-9aa7-d240277550e0
 begin
@@ -269,6 +275,30 @@ schemes = Dict(
 			("𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)",
 			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 
 		],
+	],
+	:HexC => [
+		[
+			("∂ₜ(evalat(eout, ein, u⃗))", 0) => "∂ₜ(evalat(eout, ein, u⃗))"
+		],
+		[
+			("HexC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)", 0) => "HexC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)",
+			("HexC.u⃗ᵀ∇(eout, ein, u⃗, u⃗)", 1) => "evalat(eout, ein, u⃗ᵀ∇u⃗)"
+		],
+		[
+			("HexC.ℳ̃(eout, ein, vin, u⃗, f₀)", 0) => "HexC.ℳ̃(eout, ein, vin, u⃗, f₀)"
+		],
+		[
+			("1//big(2) * ∑((vin, n⃗ev), VE(eout), w) * evalat(eout, ein, ∂₃(u⃗))", 0) => "1//big(2) * ∑((vin, n⃗ev), VE(eout), w) * evalat(eout, ein, ∂₃(u⃗))",
+			("1//big(2) * ∑((vin, n⃗ev), VE(eout), w) * evalat(eout, ein, ∂₃(u⃗))", 1) => "w̄ * evalat(eout, ein, ∂₃(u⃗))"
+		],
+		[
+			("HexC.∇ev(eout, vin, p)", 0) => "HexC.∇ev(eout, vin, p)",
+			("HexC.∇ev(eout, vin, p)", 1) => "evalat(eout, ein, ∇p)"
+		],
+		[
+			("g * HexC.∇ev(eout, vin, η)", 0) => "HexC.∇ev(eout, vin, η)",
+			("g * HexC.∇ev(eout, vin, η", 1) => "evalat(eout, ein, ∇η)"
+		],
 	]
 )
 
@@ -320,7 +350,8 @@ bschemes = Dict(
 		],
 		[
 			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)", 0) => "TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)",
-			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b-_le^2/24*TriC.Δ(cin,cin,b))", 0) => "TriC.u⃗∇ᵀ_high(cout, ein, cin, u⃗, b)"
+			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, expand((1+_le^2*(k^2+l^2)/24)*b))", 0) => "TriC.u⃗∇ᵀ_high(cout, ein, cin, u⃗, b)",
+			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)", 1) => "evalat(cout, cin, u⃗∇ᵀb)"
 		],
 		[
 			("evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))", 0) => "evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))"
@@ -328,6 +359,25 @@ bschemes = Dict(
 		[
 			("𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 0) => "𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 
 			("𝕂ᵇ * TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * TriC.Δ(cout, cin, b)"
+		]
+	],
+	:HexC => [
+		[
+			("∂ₜ(evalat(vout, vin, b))", 0) => "∂ₜ(evalat(vout, vin, b))"
+		],
+		[
+			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b)", 0) => "HexC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)",
+			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b-_le^2/8*HexC.Δ(vin, vin, b))", 0) => "HexC.u⃗∇ᵀ_high(vout, ein, vin, u⃗, b)",
+			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗∇ᵀb)"
+		],
+		[
+			("evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))", 0) => "evalat(vout, vin, w) * ∂₃(evalat(vout, vin, b))"
+		],
+		[
+			("𝕂ᵇ * -HexC.Δ(vout, vin, b)", 0) => "𝕂ᵇ * -HexC.Δ(vout, vin, b)",
+			("𝕂ᵇ * -HexC.Δ(vout, vin, b)", 1) => "𝕂ᵇ * -evalat(vout, vin, Δb)",
+			("𝕂ᵇ * HexC.Δ(vout, v, HexC.Δ(v, vin, b))", 0) => "𝕂ᵇ * HexC.Δ(vout, v, HexC.Δ(v, vin, b))",
+			("𝕂ᵇ * HexC.Δ(vout, v, HexC.Δ(v, vin, b))", 0) => "𝕂ᵇ * evalat(vout, vin, Δ²b))",
 		]
 	],
 )
@@ -358,6 +408,14 @@ bschemes = Dict(
 			("evalat(cout, cin, ∫∇ᵀu⃗dz)", 0) => "evalat(cout, cin, ∫∇ᵀu⃗dz)"
 		]
 	],
+	:HexC => [
+		[
+			("∂ₜ(evalat(vout, vin, η))", 0) => "∂ₜ(evalat(vout, vin, η))"
+		],
+		[
+			("evalat(vout, vin, ∫∇ᵀu⃗dz)", 0) => "evalat(vout, vin, ∫∇ᵀu⃗dz)"
+		]
+	]
 )
 
 # ╔═╡ 6c58a2e9-7b61-415e-b020-20b7170082e2
@@ -389,6 +447,15 @@ cschemes = Dict(
 			("∂₃(evalat(cout, cin, w))", 0) => "∂₃(evalat(cout, cin, w))"
 		]
 	],
+	:HexC => [
+		[
+			("HexC.∇ᵀve(vout, ein, u⃗)", 0) => "HexC.∇ᵀve(vout, ein, u⃗)",
+			("HexC.∇ᵀve(vout, ein, u⃗)", 1) => "evalat(vout, vin, ∇ᵀu⃗)"
+		],
+		[
+			("∂₃(evalat(vout, vin, w))", 0) => "∂₃(evalat(vout, vin, w))"
+		]
+	],
 )
 
 # ╔═╡ f4fe6284-3ea3-4e57-af2b-664fda7066a3
@@ -416,7 +483,15 @@ pschemes = Dict(
 		[
 			("-evalat(cout, cin, b)", 0) => "-evalat(cout, cin, b)"
 		]
-	]
+	],
+	:HexC => [
+		[
+			("∂₃(evalat(vout, vin, p))", 0) => "∂₃(evalat(vout, vin, p))"
+		],
+		[
+			("-evalat(vout, vin, b)", 0) => "-evalat(vout, vin, b)"
+		],
+	],
 )
 
 # ╔═╡ 51d642b5-b044-4c2a-b7e0-aab048231544
@@ -500,6 +575,12 @@ fflow = let
     construct_flowkz(grid_t, Num; u⃗=u⃗̂, w=ŵ, ∫∇ᵀu⃗dz=∫∇ᵀu⃗̂dz, b=b̂, p=p̂, η=η̂)
 end;
 
+# ╔═╡ a77404c3-511d-4ae6-9e6c-2da0cf490ee9
+# ╠═╡ disabled = true
+#=╠═╡
+fsys.momentum_transport_eq[2,1][7] = (k^2 + l^2) * fflow.u⃗[2,1] * _𝕂ᵘ
+  ╠═╡ =#
+
 # ╔═╡ cf11e62e-ee93-4b2f-9cdc-2cb228ca040c
 md"""
 ## Instability Analysis
@@ -543,8 +624,8 @@ end;
 begin
 	@variables Im
 	upin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? cin : ein)
-	spin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? vin : cin)
-	u⃗ = if grid_t == Val(:TriC)
+	spin = grid_t == Val(:TriB) ? cin : vin
+	u⃗ = if colpt_type(grid_t, :u⃗) == :edge
 		pflow.u⃗[upin[1], upin[2], upin[3]]
 	else
 		[pflow.u⃗[iTH, upin[1], upin[2], upin[3]] for iTH=1:2]
@@ -1186,6 +1267,8 @@ end
 # ╔═╡ 5ad386c4-1dfa-4c20-b7ab-e6a2d13ae1ce
 begin
 	fsys = fourier_transform_sys(grid_t, sys; dflow, fflow, ϕ, subs=Dict{Any, Any}(Im=>im))
+	#fsys.buoyancy_transport_eq[1][2] = expand(substitute(fsys.buoyancy_transport_eq[1][2], Dict(fflow.b[2] => (1+_le^2*(k^2+l^2)/24)*fflow.b[2])))
+	#fsys.buoyancy_transport_eq[2][2] = expand(substitute(fsys.buoyancy_transport_eq[2][2], Dict(fflow.b[1] => (1+_le^2*(k^2+l^2)/24)*fflow.b[1])))
 	# horizontal momentum transport
 	for (i, islimit) in enumerate(collect(last.(values(vterms))))
 		momentum_transport_eq = fsys.momentum_transport_eq
@@ -1247,12 +1330,6 @@ begin
 	end
 end;
 
-# ╔═╡ a77404c3-511d-4ae6-9e6c-2da0cf490ee9
-# ╠═╡ disabled = true
-#=╠═╡
-fsys.momentum_transport_eq[2,1][7] = (k^2 + l^2) * fflow.u⃗[2,1] * _𝕂ᵘ
-  ╠═╡ =#
-
 # ╔═╡ a2687cd8-4e59-414a-8560-e8293935e6b0
 jac = lowering_sys(grid_t, fsys, fflow; Nz=16);
 
@@ -1273,7 +1350,7 @@ Ks, iωs = let
 		𝕂ᵘ = Vᵘ * le
 		𝕂ᵇ = Vᵇ * le
 	end
-    Ks  = range(1e-10, Kmax, 400)
+    Ks  = range(1e-10, Kmax, 500)
     iωs = Complex{Float64}[]
     for K in Ks
         k = K * cos(θ)
@@ -1290,10 +1367,10 @@ end
 
 # ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
 let
-	size   = Ri > 1 ? (1400, 700) : (1400, 500)
+	size   = Ri > 1 ? (1500, 550) : (1400, 500)
 	θ = (Ri > 1 ? 0 : π/2) + θU
 	fₛ     = min(1e-2, 2/√3*π/le)
-	fₛ = 2/√3*π/6.25e3
+	#fₛ = 2/√3*π/6.25e3
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -1303,8 +1380,8 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1.1, -0.1, 0.4) : (0.0, 1.1, -0.1, 1.0)
+	aspect = Ri > 1 ? 3.0 : 2.5
+	limits = Ri > 1 ? (0.0, 1.0, -0.02, 0.38) : (0.0, 1.1, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
 	
 	f = Figure(; size, fontsize=36)
@@ -1454,12 +1531,6 @@ function exactops(grid_t)
 	end
 end
 
-# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
-# ╠═╡ disabled = true
-#=╠═╡
-(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
-  ╠═╡ =#
-
 # ╔═╡ Cell order:
 # ╠═500f352c-6e16-11f0-215d-4f5a3075cb33
 # ╟─534dfd2f-f7e5-4253-83dc-0be9e94cba01
@@ -1517,7 +1588,7 @@ end
 # ╠═70f46342-4b5c-45ce-9bf9-13a44fd780fc
 # ╟─3adadede-5704-441f-9756-08f0f820c723
 # ╟─2bfe2cd8-cf70-4efa-a0d2-5a3fe447e9e8
-# ╟─69f7116f-5062-43b3-a004-acd5de35ed1e
+# ╠═69f7116f-5062-43b3-a004-acd5de35ed1e
 # ╟─a371a682-d689-4147-8c8f-49a65a29cd8e
 # ╟─953ca291-388d-4689-a891-fcdd62b659f7
 # ╟─ffc466bf-7d98-4de1-9c12-0e8e2d559ed5

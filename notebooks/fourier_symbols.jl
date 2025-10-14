@@ -22,13 +22,14 @@ begin
 	Pkg.activate(joinpath(@__DIR__, ".."))
 	using Revise
 	using CairoMakie
-	import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z , sqrt3
-	import GridOperatorAnalysis: TriAFlow, TriAFlowFT, TriBFlow, TriBFlowFT, TriCFlow, TriCFlowFT
+	import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z, sqrt3
+	import GridOperatorAnalysis: TriAFlow, TriAFlowFT, TriBFlow, TriBFlowFT, TriCFlow, TriCFlowFT, HexCFlow, HexCFlowFT
 	import GridOperatorAnalysis: colpt_type, colptidx, compute_phases, sqrt3_subs
 	import GridOperatorAnalysis: fourier_transform_expression
 	import GridOperatorAnalysis.TriA
 	import GridOperatorAnalysis.TriB
 	import GridOperatorAnalysis.TriC
+	import GridOperatorAnalysis.HexC
 	import GridOperatorAnalysis
 	import LinearAlgebra: eigen
 	import OffsetArrays: no_offset_view
@@ -58,7 +59,7 @@ colpts = (; vertex=v, cell=c, edge=e);
 
 # ╔═╡ 9abfbc35-bd37-4554-949c-27cd2bdfa1a7
 md"""
-__Grid__: $(@bind grid_t Select([:TriA, :TriB, :TriC]; default=:TriA))
+__Grid__: $(@bind grid_t Select([:TriA, :TriB, :TriC, :HexC]; default=:TriA))
 """
 
 # ╔═╡ cfb78fd5-4435-4c0d-8cf2-1b5fffc2f91e
@@ -208,19 +209,15 @@ __Discretization scheme for the momentum transport__:
 $(@bind hst_scheme select_hst_scheme(grid_t))
 """
 
-# ╔═╡ 2f54e23f-2729-4b29-ab6f-8d60aa7d2699
-#=╠═╡
-fhst = fhsts[inputs.biH]
-  ╠═╡ =#
+# ╔═╡ 363d736c-c30b-4878-8f32-c066df479600
+md"""
+#### Linearization Procedure
+"""
 
-# ╔═╡ a30cee69-cce3-4044-900e-a3a6188b4653
-# ╠═╡ disabled = true
-#=╠═╡
-fhst = let
-	(; biH) = inputs
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhst; fflow, dflow, ϕ)
-end;
-  ╠═╡ =#
+# ╔═╡ 386315ca-ef94-44f5-9df8-eb320be72b34
+md"""
+#### Fourier Transform
+"""
 
 # ╔═╡ 698f9004-f56b-41c0-b6a6-b55c505fb1a8
 md"""
@@ -230,6 +227,26 @@ md"""
 # ╔═╡ 99c92534-3092-4995-8044-d8001aad8f5c
 md"""
 Small wavenumber approximation: $(@bind doapproxs CheckBox(default=true))
+"""
+
+# ╔═╡ ed799518-6bf1-4180-8206-0a3b6e51aed0
+md"""
+#### Advection of the buoyancy pertubation
+"""
+
+# ╔═╡ 05fb2f19-1b43-4e7a-84c5-1ea8a71b9284
+md"""
+#### Advection of the background buoyancy by the velocity pertubation
+"""
+
+# ╔═╡ 26fd8b72-c736-43db-9d32-f76cbe5dd901
+md"""
+#### Eigenvalues of Fourier Symbols
+"""
+
+# ╔═╡ bc991b63-8e0e-4e37-9369-15f2e11e195e
+md"""
+## Diffusion Operator
 """
 
 # ╔═╡ 7d55ea61-e0f1-4bd9-a36c-22857ad145e7
@@ -336,12 +353,14 @@ getflow(grid_t) =
 		TriBFlow
 	elseif grid_t == :TriC
 		TriCFlow
+	else
+		HexCFlow
 	end
 
 # ╔═╡ 8ae523f0-1eeb-4d62-b089-502c52dd1277
 begin
 	flow_t = getflow(grid_t)
-	if grid_t == :TriC
+	if colpt_type(flow_t, :u⃗) == :edge
 		@variables (du⃗(t,z))[-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
 	else
 		@variables (du⃗(t,z))[1:2,-nS:nS,-nS:nS,1:dims(colpt_type(flow_t, :u⃗))]
@@ -356,6 +375,24 @@ begin
     dflow = flow_t{nS}(; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
 end;
 
+# ╔═╡ 7f20375f-6491-47ff-bcc0-fb77baa8bedf
+hds = let
+	cpb = colpts[colpt_type(flow_t, :b)]
+	pb =  ϵ*dflow.b[cpb[1], cpb[2], cpb[3]] # bflow.b[cpb[1], cpb[2], cpb[3]] .+
+	hds = []
+	for biH=1:dims(colpt_type(flow_t, :b))
+		hd = HexC.Δ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpb, pb)
+		hd = substitute(hd, sqrt3_subs)
+		push!(hds, hd)
+	end
+	hds
+end;
+
+# ╔═╡ 1af2939c-6795-4472-ae44-8c9466a159ab
+lhds = [
+	expand(taylor_coeff(expand(hd), ϵ, 1)) for hd in hds
+];
+
 # ╔═╡ 3782fb16-26b7-4edd-8591-ef119b1cabef
 getflowft(grid_t) =
 	if grid_t == :TriA
@@ -364,12 +401,14 @@ getflowft(grid_t) =
 		TriBFlowFT
 	elseif grid_t == :TriC
 		TriCFlowFT
+	else
+		HexCFlowFT
 	end
 
 # ╔═╡ 780abc6b-d9ab-40d1-9a01-d12b1d3fc3ae
 begin
 	flowft_t = getflowft(grid_t)
-	if grid_t == :TriC
+	if colpt_type(flow_t, :u⃗) == :edge
 		@variables (u⃗̂(t,z))[1:dims(colpt_type(flowft_t, :u⃗))]
 	else
 		@variables (u⃗̂(t,z))[1:2, 1:dims(colpt_type(flowft_t, :u⃗))]
@@ -383,6 +422,11 @@ begin
     end
     fflow = flowft_t{Symbolics.Num}(; u⃗=u⃗̂, w=ŵ, ∫∇ᵀu⃗dz=∫∇ᵀu⃗̂dz, b=b̂, p=p̂, η=η̂)
 end;
+
+# ╔═╡ 4b2d9f6d-4438-436a-91cb-47fb66270841
+fhds = [
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhds[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
+];
 
 # ╔═╡ d424025e-3efd-4c4b-8d97-7369ff3618da
 function gethmt(grid_t, hmt_scheme)
@@ -410,6 +454,12 @@ function gethmt(grid_t, hmt_scheme)
 	    else
 	        throw(ArgumentError("The scheme $hmt_scheme for the horizontal momentum transport is not implemented"))
 	    end
+	else
+		if hmt_scheme == :MPAS
+	        HexC.u⃗ᵀ∇
+	    else
+	        throw(ArgumentError("The scheme $hmt_scheme for the horizontal momentum transport is not implemented"))
+	    end
 	end
 end
 
@@ -418,14 +468,14 @@ begin
 	hmts = []
 	for iH=1:dims(colpt_type(flow_t, :u⃗))
 		cp = colpts[colpt_type(flow_t, :u⃗)]
-		pu⃗ = grid_t == :TriC ? bflow.u⃗[cp[1], cp[2], cp[3]] .+ ϵ*dflow.u⃗[cp[1], cp[2], cp[3]] : [bflow.u⃗[iTH, cp[1], cp[2], cp[3]] .+ ϵ*dflow.u⃗[iTH, cp[1], cp[2], cp[3]] for iTH=1:2]
+		pu⃗ = colpt_type(flow_t, :u⃗) == :edge ? bflow.u⃗[cp[1], cp[2], cp[3]] .+ ϵ*dflow.u⃗[cp[1], cp[2], cp[3]] : [bflow.u⃗[iTH, cp[1], cp[2], cp[3]] .+ ϵ*dflow.u⃗[iTH, cp[1], cp[2], cp[3]] for iTH=1:2]
 		u⃗ᵀ∇ = gethmt(grid_t, hmt_scheme)
 		push!(hmts, u⃗ᵀ∇(colptidx(0,0,iH,Val(colpt_type(flow_t, :u⃗))), cp, pu⃗, pu⃗))
 	end
 end;
 
 # ╔═╡ 50fc9497-99e4-44d7-b25f-ffccd14b145a
-lhmts = if grid_t == :TriC
+lhmts = if colpt_type(flow_t, :u⃗) == :edge
 	[expand(taylor_coeff(hmts[iH], ϵ, 1)) for iH=1:dims(colpt_type(flow_t, :u⃗))]
 else
 	[[expand(taylor_coeff(hmts[iH][iTH], ϵ, 1)) for iTH=1:2] for iH=1:dims(colpt_type(flow_t, :u⃗))]
@@ -435,7 +485,7 @@ end;
 begin
 	fhmts = []
 	for iH=1:dims(colpt_type(flow_t, :u⃗))
-		if grid_t == :TriC
+		if colpt_type(flow_t, :u⃗) == :edge
 			fhmt = fourier_transform_expression(iH, colpt_type(flow_t, :u⃗), lhmts[iH]; fflow, dflow, ϕ)
 			push!(fhmts, fhmt)
 		else
@@ -467,8 +517,41 @@ function gethst(grid_t, hst_scheme)
 	    else
 	        throw(ArgumentError("The scheme $hmt_scheme for the horizontal momentum transport is not implemented"))
 	    end
+	else
+		if hst_scheme == :low
+	        HexC.u⃗∇ᵀ
+	    else
+	        throw(ArgumentError("The scheme $hmt_scheme for the horizontal momentum transport is not implemented"))
+	    end
 	end
 end
+
+# ╔═╡ f80621ff-53de-4b21-b314-b8d4bbdbcc61
+hsts = let
+	cpu⃗ = colpts[colpt_type(flow_t, :u⃗)]
+	cpb = colpts[colpt_type(flow_t, :b)]
+	pu⃗ = colpt_type(flow_t, :u⃗) == :edge ? bflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] : [bflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] for iTH=1:2]
+	pb =  bflow.b[cpb[1], cpb[2], cpb[3]] .+ ϵ*dflow.b[cpb[1], cpb[2], cpb[3]]
+	u⃗∇ᵀ = gethst(grid_t, hst_scheme)
+	hsts = []
+	for biH=1:dims(colpt_type(flow_t, :b))
+		b = pb #- a^2/8*HexC.Δ(cpb, cpb, pb) #
+		hst = u⃗∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpu⃗, cpb, pu⃗, b)
+		hst = substitute(hst, GridOperatorAnalysis.sqrt3_subs)
+		push!(hsts, hst)
+	end
+	hsts
+end;
+
+# ╔═╡ 03ccdcf0-5dcb-4257-ace8-8f9ce22dee3e
+lhsts = [
+	expand(taylor_coeff(expand(hst), ϵ, 1)) for hst in hsts
+];
+
+# ╔═╡ 16bb4e26-9d82-4718-881f-66450ce90bf1
+fhsts = [
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
+];
 
 # ╔═╡ 391de831-feea-436e-9be5-15686d9c9155
 md"""
@@ -503,14 +586,13 @@ sfhmts = let
 	for iH=1:d
 		fhmt = let
 			fhmt = expand.(fhmts[iH])
-			if doapprox
-				fhmt = expand.(simplify.(fhmt; rewriter=rtrig))
+			fhmt = if doapprox # rewrite trig-functions by Taylor polynomial
+				simplify.(fhmt; rewriter=rtrig) .|> expand
 			else
-				fhmt = substitute.(fhmt, Ref(Dict(l => h/a * 2/GridOperatorAnalysis.sqrt3 * l)))
+				substitute.(fhmt, Ref(Dict(l => h/a * 2/sqrt3 * l)))
 			end
-			fhmt = substitute.(fhmt, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M² ))) 
-			fhmt = expand.(fhmt)
-			fhmt = substitute.(fhmt, Ref(sqrt3_subs))
+			fhmt = substitute.(fhmt, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M²))) .|> expand
+			fhmt = substitute.(fhmt, Ref(sqrt3_subs)) .|> expand
 		end
 		if colpt_t == :edge
 			for jH = 1:d
@@ -532,29 +614,6 @@ sfhmts = let
 	end
 	sfhmts
 end;
-
-# ╔═╡ 88ad62f8-97f2-43b1-92bc-34ef51cf99f5
-begin
-	@variables k̃, l̃
-	F = let
-		F = sfhmts[:,1,:,1] ./ Ū
-		Fre = real.(F)
-		Fim = imag.(F)
-		Fim = substitute.(Fim, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-		for f in [Fre, Fim]
-			if doapprox
-				f .= substitute.(f, Ref(Dict(a=>2/sqrt3 * h)))
-				f .= simplify.(f; expand=true)
-				f .= substitute.(f, Ref(sqrt3_subs))
-				f .= simplify.(f; expand=true)
-			else
-				f = substitute.(f, Ref(Dict(sqrt3=> 2 * h/a)))
-			end
-		end
-		Fim = l̃ * simplify.(taylor_coeff.(Fim, l̃, 1)) + k̃ * simplify.(taylor_coeff.(Fim, k̃, 1))
-		Fre .+ Fim * im
-	end
-end
 
 # ╔═╡ 4c11881b-8b92-4f9e-807d-0d2685893c82
 begin
@@ -580,33 +639,6 @@ begin
 	Fn = simplify.(Fn ./ K; expand=true)
 end
 
-# ╔═╡ f80621ff-53de-4b21-b314-b8d4bbdbcc61
-hsts = let
-	cpu⃗ = colpts[colpt_type(flow_t, :u⃗)]
-	cpb = colpts[colpt_type(flow_t, :b)]
-	pu⃗ = grid_t == :TriC ? bflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[cpu⃗[1], cpu⃗[2], cpu⃗[3]] : [bflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] .+ ϵ*dflow.u⃗[iTH, cpu⃗[1], cpu⃗[2], cpu⃗[3]] for iTH=1:2]
-	pb =  bflow.b[cpb[1], cpb[2], cpb[3]] .+ ϵ*dflow.b[cpb[1], cpb[2], cpb[3]]
-	u⃗∇ᵀ = gethst(grid_t, hst_scheme)
-	hsts = []
-	for biH=1:dims(colpt_type(flow_t, :b))
-		b = (1+h^2*K^2/18)*pb# - h^2/18*TriC.Δ(cpb, cpb, pb)
-		hst = u⃗∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpu⃗, cpb, pu⃗, b)
-		hst = substitute(hst, GridOperatorAnalysis.sqrt3_subs)
-		push!(hsts, hst)
-	end
-	hsts
-end;
-
-# ╔═╡ 03ccdcf0-5dcb-4257-ace8-8f9ce22dee3e
-lhsts = [
-	expand(taylor_coeff(expand(hst), ϵ, 1)) for hst in hsts
-];
-
-# ╔═╡ 16bb4e26-9d82-4718-881f-66450ce90bf1
-fhsts = [
-	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhsts[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
-];
-
 # ╔═╡ 78fa487a-5bdf-4aa3-b9c5-25d856697fae
 begin
 	sfbs, sfus = let
@@ -628,10 +660,8 @@ begin
 			else
 				fhst = substitute.(fhst, Ref(Dict(l => h/a * 2/GridOperatorAnalysis.sqrt3 * l)))
 			end
-			fhst = substitute.(fhst, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M² ))) 
-			fhst = expand.(fhst)
-			fhst = substitute.(fhst, Ref(sqrt3_subs))
-			fhst = expand.(fhst)
+			fhst = substitute.(fhst, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M²))) .|> expand
+			fhst = substitute.(fhst, Ref(sqrt3_subs)) .|> expand
 		end
 		for jH=1:dims(colpt_type(flow_t, :b))
 			b = fflow.b[jH]
@@ -654,22 +684,6 @@ begin
 	end
 end
 
-# ╔═╡ 25cefa7a-d3a8-4c09-971f-5be726f13ca3
-S = let
-	@variables k̃, l̃
-	F = sfbs ./ Ū
-	F = substitute.(F, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-	if doapproxs
-		F = substitute.(F, Ref(Dict(a=>2/GridOperatorAnalysis.sqrt3 * h)))
-		F = simplify.(F; expand=true)
-		F = substitute.(F, Ref(sqrt3_subs))
-	else
-		F = substitute.(F, Ref(Dict(GridOperatorAnalysis.sqrt3=> 2 * h/a)))
-	end
-	F = simplify.(F; expand=true)
-	F = k̃ * simplify.(taylor_coeff.(F, k̃, 1)) + l̃ * simplify.(taylor_coeff.(F, l̃, 1))
-end
-
 # ╔═╡ 70137bf3-0f04-4863-ad91-2087ae3f1d3f
 begin
 	@variables K̃
@@ -678,34 +692,94 @@ begin
 		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
-			F .= substitute.(F, Ref(Dict(h=> K̃ / K, sin(θU)^2=>1-cos(θU)^2, sin(θU)^4=>(1-cos(θU)^2)^2))) #
+			F .= substitute.(F, Ref(Dict(h=> K̃ / K, sin(θU)^2=>1-cos(θU)^2, sin(θU)^4=>(1-cos(θU)^2)^2, sin(θU)^6=>(1-cos(θU)^2)^3))) #
 			F .= simplify.(F; expand=true)
 			F .= substitute.(F, Ref(sqrt3_subs))
+		else
+			F .= expand.(F)
+			F .= substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
+		end
+	end
+	Fb .= simplify.(Fb ./ K; expand=true)
+end
+
+# ╔═╡ 7509a8b9-468b-4b2b-8a8c-175b3f045c4b
+begin
+	T = let
+		F = sfus ./ M²
+		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		if doapproxs
+			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h))) .|> expand
+			F .= substitute.(F, Ref(Dict(
+				h=> K̃ / K, 
+				sin(θU)^2=>1-cos(θU)^2, 
+				sin(θU)^3=>sin(θU)*(1-cos(θU)^2),
+				sin(θU)^4=>(1-cos(θU)^2)^2,
+				sin(θU)^5=>sin(θU)*(1-cos(θU)^2)^2, 
+				sin(θU)^6=>(1-cos(θU)^2)^3
+			)))
+			F .= simplify.(F; expand=true)
+			F .= substitute.(F, Ref(sqrt3_subs))
+		else
+			F .= expand.(F)
+			F .= substitute.(F, Ref(Dict(sqrt3=> 2 * h/a)))
+		end
+	end
+	T = if colpt_type(Val(grid_t), :u⃗) ≠ :edge
+		simplify.(T ./ reshape([-sin(θU); cos(θU)], 1, 1, 2); expand=true)
+		#(simplify.(T[:,:,1] ./ -sin(θU); expand=true), simplify.(T[:,:,2] ./ cos(θU); expand=true))
+	else
+		T
+	end
+	if colpt_type(Val(grid_t), :u⃗) ≠ :edge
+		(T[:,:,1], T[:,:,2])
+	else
+		T
+	end
+end
+
+# ╔═╡ 27dbf7f2-14db-40ac-9e59-d2cfb3864a8e
+begin
+	sfhds = let
+		colpt_t_b = colpt_type(flow_t, :b)
+		db = dims(colpt_t_b)
+		zeros(Complex{Symbolics.Num},db,db)
+	end
+	for iH=1:dims(colpt_type(flow_t, :b))
+		fhd = let
+			fhd = expand.(fhds[iH])
+			if doapproxs
+				fhd = expand.(simplify.(fhd; rewriter=rtrig))
+			else
+				fhd = substitute.(fhd, Ref(Dict(l => h/a * 2/GridOperatorAnalysis.sqrt3 * l)))
+			end
+			fhd = substitute.(fhd, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M² ))) .|> expand
+			fhd = substitute.(fhd, Ref(sqrt3_subs)) .|> expand
+		end
+		for jH=1:dims(colpt_type(flow_t, :b))
+			b = fflow.b[jH]
+			sfhd = taylor_coeff(fhd, b, 1)
+			sfhds[iH, jH] = simplify(sfhd; expand=true)
+		end
+	end
+end
+
+# ╔═╡ 04d312fc-e353-4660-82ad-3dd048d79551
+begin
+	Fhd = let
+		F = sfhds
+		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		if doapproxs
+			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
+			F .= simplify.(F; expand=true)
+			F .= substitute.(F, Ref(sqrt3_subs))
+			F .= substitute.(F, Ref(Dict(h=> K̃ / K, cos(θU)^2=>1-sin(θU)^2, cos(θU)^4=>(1-sin(θU)^2)^2))) #
 		else
 			F = expand.(F)
 			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
 	end
-	@show Fb = simplify.(Fb ./ K; expand=true)
-end
-
-# ╔═╡ 37ecb266-dd5f-4d79-8975-d2ab091c70ff
-begin
-	T = let
-		@variables k̃, l̃
-		F = sfus ./ M²
-		F = substitute.(F, Ref(Dict(cos(θU) => k̃/k, sin(θU) => l̃/l)))
-		if doapproxs
-			F = substitute.(F, Ref(Dict(a=>2/GridOperatorAnalysis.sqrt3 * h)))
-			F = simplify.(F; expand=true)
-			F = substitute.(F, Ref(sqrt3_subs))
-		else
-			F = substitute.(F, Ref(Dict(GridOperatorAnalysis.sqrt3=> 2 * h/a)))
-		end
-		F = simplify.(F; expand=true)
-		F = k̃ * simplify.(taylor_coeff.(F, k̃, 1)) + l̃ * simplify.(taylor_coeff.(F, l̃, 1))
-	end
-	T[1,:,:]
+	@show Fhd = simplify.(Fhd ./ -K^2; expand=true)
 end
 
 # ╔═╡ 7b864ab1-b61c-481c-849a-9824c9abc984
@@ -803,12 +877,12 @@ end
 # ╔═╡ f1feff04-e468-4909-af4c-9bc5a032f407
 K̃s, ωs = let
 	@variables K̃
-	K̃s = range(floatmin(Float64), π, 100)
+	K̃s = range(1e-20, π, 100) #floatmin(Float64)
 	ωs = []
 	if doapprox
 		for sv in svs
 			sv    = substitute(sv, Dict(
-				θU     => 0, 
+				θU    => 0, 
 				h     => K̃ / K, 
 				a     => K̃ / K * 2 / √3, 
 				sqrt3 => √3))
@@ -817,7 +891,13 @@ K̃s, ωs = let
 			push!(ωs, vfunc.(K̃s))
 		end
 	else
-		A = simplify.(substitute.(Fn, Ref(Dict(θU => 0, h => K̃ / K, a => K̃ / K * 2 / √3, GridOperatorAnalysis.sqrt3 => √3))); expand=true)
+		A = substitute.(Fn, Ref(Dict(
+			θU => 0, 
+			h => K̃ / K, 
+			a => K̃ / K * 2 / √3, 
+			sqrt3 => √3
+		)))
+		A = simplify.(A; expand=true)
 		Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
 		for k̃ in K̃s
 			(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
@@ -833,6 +913,7 @@ let
 	ax = Axis(f[1,1];
 			 xlabel = "wavenumber / h⁻¹",
 			 ylabel = L"ω / i\bar{U}K",
+			 limits = (0, π, -1, 1.1), 
 			 aspect = 1,
 			 )
 	if doapprox
@@ -848,6 +929,210 @@ let
 	end
 	#axislegend()
 	f
+end
+
+# ╔═╡ 6dab1873-d738-4e41-9d16-0f83fb168bd4
+if doapproxs
+	svbs = compute_symbolic_eigenvals(Symbolics.wrap.(Fb))
+	svbs = Symbolics.simplify.(svbs; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
+end
+
+# ╔═╡ 6a120e6b-ced8-414a-a56b-3b49ea21c8fa
+let
+	K̃s, ωs = let
+		K̃s = range(1e-20, π, 100) #floatmin(Float64)
+		ωs = []
+		if doapproxs
+			for sv in svbs
+				sv = substitute(sv, Dict(
+					θU    => 0, 
+					h     => K̃ / K, 
+					a     => K̃ / K * 2 / √3, 
+					sqrt3 => √3))
+				sv    = simplify(sv; expand=true)
+				vfunc = Symbolics.build_function(sv, K̃; expression=Val(false))
+				push!(ωs, vfunc.(K̃s))
+			end
+		else
+			A = substitute.(Fb, Ref(Dict(
+				θU => 0, 
+				h => K̃ / K, 
+				a => K̃ / K * 2 / √3, 
+				sqrt3 => √3
+			)))
+			A = simplify.(A; expand=true)
+			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+			for k̃ in K̃s
+				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+				push!(ωs, values)
+			end
+		end
+		(K̃s, ωs)
+	end
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / i\bar{U}K",
+			 limits = (0, π, -1, 1.1), 
+			 aspect = 1,
+			 )
+	if doapproxs
+		for ω in ωs
+			lines!(ax, K̃s, imag.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, imag(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
+
+# ╔═╡ 5d83c523-626f-4b06-85ee-8b71423d398a
+# ╠═╡ disabled = true
+#=╠═╡
+if doapproxs
+	svus = compute_symbolic_eigenvals(Symbolics.wrap.(T[1]))
+	svus = Symbolics.simplify.(svus; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
+end
+  ╠═╡ =#
+
+# ╔═╡ 9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
+#=╠═╡
+let
+	K̃s, ωs = let
+		K̃s = range(1e-20, π, 100) #floatmin(Float64)
+		ωs = []
+		if doapproxs
+			for svu in svus
+				svu    = substitute(svu, Dict(
+					θU    => 0, 
+					h     => K̃ / K, 
+					a     => K̃ / K * 2 / √3, 
+					sqrt3 => √3))
+				svu    = simplify(svu; expand=true)
+				vfunc = Symbolics.build_function(svu, K̃; expression=Val(false))
+				push!(ωs, vfunc.(K̃s))
+			end
+		else
+			A = substitute.(T[1], Ref(Dict(
+				θU => 1e-30, 
+				h => K̃ / K, 
+				a => K̃ / K * 2 / √3, 
+				sqrt3 => √3
+			)))
+			A = simplify.(A; expand=true)
+			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+			for k̃ in K̃s
+				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+				push!(ωs, values)
+			end
+		end
+		(K̃s, ωs)
+	end
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / -\mathrm{M²}\sin(θU)",
+			 limits = (0, π, 0, 2), 
+			 aspect = 1,
+			 )
+	if doapproxs
+		for ω in ωs
+			lines!(ax, K̃s, real.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, real(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 30620b89-ced4-4353-bf3f-6d9c58794aa4
+# ╠═╡ disabled = true
+#=╠═╡
+if doapproxs
+	svvs = compute_symbolic_eigenvals(Symbolics.wrap.(T[2]))
+	svvs = Symbolics.simplify.(svvs; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
+end
+  ╠═╡ =#
+
+# ╔═╡ 5361ebe0-a415-416c-b57f-051b0e6382f6
+#=╠═╡
+let
+	K̃s, ωs = let
+		K̃s = range(1e-20, π, 100) #floatmin(Float64)
+		ωs = []
+		if doapproxs
+			for svv in svvs
+				svv = substitute(svv, Dict(
+					θU    => 0, 
+					h     => K̃ / K, 
+					a     => K̃ / K * 2 / √3, 
+					sqrt3 => √3))
+				svv   = simplify(svv; expand=true)
+				vfunc = Symbolics.build_function(svv, K̃; expression=Val(false))
+				push!(ωs, vfunc.(K̃s))
+			end
+		else
+			A = substitute.(T[2], Ref(Dict(
+				θU => 0, 
+				h => K̃ / K, 
+				a => K̃ / K * 2 / √3, 
+				sqrt3 => √3
+			)))
+			A = simplify.(A; expand=true)
+			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+			for k̃ in K̃s
+				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+				push!(ωs, values)
+			end
+		end
+		(K̃s, ωs)
+	end
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / \mathrm{M²}\cos(θU)",
+			 limits = (0, π, 0, 2), 
+			 aspect = 1,
+			 )
+	if doapproxs
+		for ω in ωs
+			lines!(ax, K̃s, real.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, real(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ dcbd2629-eb5d-42b5-9234-d132106f5747
+if doapproxs
+	sevs = compute_symbolic_eigenvals(Symbolics.wrap.(Fhd*K̃^2))
+	sevs = Symbolics.simplify.(sevs; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
 end
 
 # ╔═╡ Cell order:
@@ -879,7 +1164,6 @@ end
 # ╟─583e619a-76da-4f63-8377-b5eac40c96af
 # ╟─0f1cbe99-8b11-426d-8d28-77b6dffef277
 # ╠═192a4172-a2bb-416b-83df-194a090b093a
-# ╠═88ad62f8-97f2-43b1-92bc-34ef51cf99f5
 # ╠═4c11881b-8b92-4f9e-807d-0d2685893c82
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
 # ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
@@ -889,16 +1173,31 @@ end
 # ╟─27ec48bb-d7bb-4b70-9932-08f0e0926504
 # ╟─e9dd8811-c91e-45e4-8ced-afd7391f248a
 # ╠═f80621ff-53de-4b21-b314-b8d4bbdbcc61
+# ╟─363d736c-c30b-4878-8f32-c066df479600
 # ╠═03ccdcf0-5dcb-4257-ace8-8f9ce22dee3e
+# ╟─386315ca-ef94-44f5-9df8-eb320be72b34
 # ╠═16bb4e26-9d82-4718-881f-66450ce90bf1
-# ╠═2f54e23f-2729-4b29-ab6f-8d60aa7d2699
-# ╠═a30cee69-cce3-4044-900e-a3a6188b4653
 # ╟─698f9004-f56b-41c0-b6a6-b55c505fb1a8
 # ╟─99c92534-3092-4995-8044-d8001aad8f5c
 # ╠═78fa487a-5bdf-4aa3-b9c5-25d856697fae
-# ╠═25cefa7a-d3a8-4c09-971f-5be726f13ca3
+# ╟─ed799518-6bf1-4180-8206-0a3b6e51aed0
 # ╠═70137bf3-0f04-4863-ad91-2087ae3f1d3f
-# ╠═37ecb266-dd5f-4d79-8975-d2ab091c70ff
+# ╟─05fb2f19-1b43-4e7a-84c5-1ea8a71b9284
+# ╠═7509a8b9-468b-4b2b-8a8c-175b3f045c4b
+# ╟─26fd8b72-c736-43db-9d32-f76cbe5dd901
+# ╠═6dab1873-d738-4e41-9d16-0f83fb168bd4
+# ╟─5d83c523-626f-4b06-85ee-8b71423d398a
+# ╠═30620b89-ced4-4353-bf3f-6d9c58794aa4
+# ╠═6a120e6b-ced8-414a-a56b-3b49ea21c8fa
+# ╟─9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
+# ╟─5361ebe0-a415-416c-b57f-051b0e6382f6
+# ╟─bc991b63-8e0e-4e37-9369-15f2e11e195e
+# ╠═7f20375f-6491-47ff-bcc0-fb77baa8bedf
+# ╠═1af2939c-6795-4472-ae44-8c9466a159ab
+# ╠═4b2d9f6d-4438-436a-91cb-47fb66270841
+# ╠═27dbf7f2-14db-40ac-9e59-d2cfb3864a8e
+# ╠═04d312fc-e353-4660-82ad-3dd048d79551
+# ╠═dcbd2629-eb5d-42b5-9234-d132106f5747
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 # ╟─8eea87eb-048e-4436-9d20-3bcc9e76c7b7
 # ╟─f0f8c55d-82fa-4cf4-9678-555c1222e615
