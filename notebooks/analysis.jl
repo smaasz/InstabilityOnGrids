@@ -54,6 +54,9 @@ md"""
 ## Constants
 """
 
+# ╔═╡ 1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
+Symbolics.@variables _g _f₀ _N²
+
 # ╔═╡ b02f29a5-7f20-49dd-aa0a-9b30d8b4a1ed
 # ╠═╡ disabled = true
 # ╠═╡ skip_as_script = true
@@ -69,7 +72,7 @@ end;
   ╠═╡ =#
 
 # ╔═╡ 99dab097-3490-46cb-bf26-62b60b51d3c2
-const Nz = 4
+const Nz = 16
 
 # ╔═╡ 2e485b46-7aa1-483d-9c25-95cd98439ccc
 md"""
@@ -94,6 +97,9 @@ __Choice of the grid__: $(@bind _grid_t PlutoUI.Select([:TriA => "triangular A-G
 # ╔═╡ a3eecd80-eb24-47f6-ab77-1bb4b6e109bb
 grid_t = Val(_grid_t)
 
+# ╔═╡ a832b824-afdb-458c-9f91-ea023c52852e
+bflow = eady_background_flow(grid_t, le; f₀=_f₀, N²=_N², Ri=Ri, H, U=1, θU=θU, β=β);
+
 # ╔═╡ b9fa1a9b-7989-4f1c-abe8-de153cf8085f
 dflow = let
 	if colpt_type(grid_t, :u⃗) == :edge
@@ -109,6 +115,32 @@ dflow = let
         (dp(t,z))[-nS:nS, -nS:nS, 1:dims(colpt_type(grid_t, :p))]
     end
     construct_flowΔxz(grid_t, nS; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
+end;
+
+# ╔═╡ 0ef5eb5f-6c6c-4ecc-87bd-16247f9056e4
+begin
+	@variables ϵ
+	pflow = let
+		state = bflow.state .+ ϵ .* dflow.state
+		pflow = typeof(dflow)(state)
+	end
+end;
+
+# ╔═╡ 0d0a0e92-2d63-4745-9114-8a10c5be58de
+begin
+	@variables Im
+	upin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? cin : ein)
+	spin = grid_t == Val(:TriC) ? cin : vin
+	u⃗ = if colpt_type(grid_t, :u⃗) == :edge
+		pflow.u⃗[upin[1], upin[2], upin[3]]
+	else
+		[pflow.u⃗[iTH, upin[1], upin[2], upin[3]] for iTH=1:2]
+	end
+	b = pflow.b[spin[1], spin[2], spin[3]]
+	η = pflow.η[spin[1], spin[2], spin[3]]
+	w = pflow.w[spin[1], spin[2], spin[3]]
+	p = pflow.p[spin[1], spin[2], spin[3]]
+	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[spin[1], spin[2], spin[3]]
 end;
 
 # ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
@@ -185,6 +217,9 @@ function EqSchemes(schemes)
 	""")
 	end
 end
+
+# ╔═╡ 61150eb4-c9ce-4fd8-8314-780b9c1c29b6
+u⃗⊥ = [-u⃗[2]; u⃗[1]];
 
 # ╔═╡ 29bef65a-0414-4304-a718-189b6885d2e3
 schemes = Dict(
@@ -272,8 +307,10 @@ schemes = Dict(
 			("g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))", 0) => "g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))"
 		],
 		[
-			("𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ *- TriC.Δ⃗(eout, ein, u⃗)",
-			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 
+			("𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)",
+			("𝕂ᵘ * -TriC.ℳ(eout, e, TriC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * -evalat(eout, ein, Δu⃗)",
+			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))",
+			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * evalat(eout, ein, Δ²u⃗))", 
 		],
 	],
 	:HexC => [
@@ -299,6 +336,12 @@ schemes = Dict(
 			("g * HexC.∇ev(eout, vin, η)", 0) => "HexC.∇ev(eout, vin, η)",
 			("g * HexC.∇ev(eout, vin, η", 1) => "evalat(eout, ein, ∇η)"
 		],
+		[
+			("𝕂ᵘ * -HexC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ * -HexC.Δ⃗(eout, ein, u⃗)",
+			("𝕂ᵘ * -HexC.Δ⃗(eout, ein, u⃗)", 1) => "𝕂ᵘ * -evalat(eout, ein, Δu⃗)", 
+			("𝕂ᵘ * HexC.Δ⃗(eout, e, HexC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * HexC.Δ⃗(eout, e, HexC.Δ⃗(e, ein, u⃗))",
+			("𝕂ᵘ * HexC.Δ⃗(eout, e, HexC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * evalat(eout, ein, Δ²u⃗)",	
+		]
 	]
 )
 
@@ -330,6 +373,7 @@ bschemes = Dict(
 		],
 		[
 			("TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 0) => "TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 
+			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b-_le^2/8*TriB.Δ(vin, vin, b))", 0) => "TriB.u⃗∇ᵀ_high(vout, cin, vin, u⃗, b)",
 		 	("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 0) => "TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 
 			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗ᵀ∇b)"
 		],
@@ -357,8 +401,10 @@ bschemes = Dict(
 			("evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))", 0) => "evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))"
 		],
 		[
-			("𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 0) => "𝕂ᵇ * -TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 
-			("𝕂ᵇ * TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * TriC.Δ(cout, cin, b)"
+			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * -TriC.Δ(cout, cin, b)",
+			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 1) => "𝕂ᵇ * -evalat(cout, cin, Δb)",
+			("𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 0) => "𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))",
+			("𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 1) => "𝕂ᵇ * evalat(cout, cin, Δ²b)",
 		]
 	],
 	:HexC => [
@@ -575,12 +621,6 @@ fflow = let
     construct_flowkz(grid_t, Num; u⃗=u⃗̂, w=ŵ, ∫∇ᵀu⃗dz=∫∇ᵀu⃗̂dz, b=b̂, p=p̂, η=η̂)
 end;
 
-# ╔═╡ a77404c3-511d-4ae6-9e6c-2da0cf490ee9
-# ╠═╡ disabled = true
-#=╠═╡
-fsys.momentum_transport_eq[2,1][7] = (k^2 + l^2) * fflow.u⃗[2,1] * _𝕂ᵘ
-  ╠═╡ =#
-
 # ╔═╡ cf11e62e-ee93-4b2f-9cdc-2cb228ca040c
 md"""
 ## Instability Analysis
@@ -605,99 +645,6 @@ begin
 end;
   ╠═╡ =#
 
-# ╔═╡ 1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
-Symbolics.@variables _Ri _le _g _f₀ _N² _𝕂ᵘ _𝕂ᵇ _θU _β k l
-
-# ╔═╡ a832b824-afdb-458c-9f91-ea023c52852e
-bflow = eady_background_flow(grid_t, _le; f₀=_f₀, N²=_N², Ri=_Ri, H, U=1, θU=_θU, β=0);
-
-# ╔═╡ 0ef5eb5f-6c6c-4ecc-87bd-16247f9056e4
-begin
-	@variables ϵ
-	pflow = let
-		state = bflow.state .+ ϵ .* dflow.state
-		pflow = typeof(dflow)(state)
-	end
-end;
-
-# ╔═╡ 0d0a0e92-2d63-4745-9114-8a10c5be58de
-begin
-	@variables Im
-	upin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? cin : ein)
-	spin = grid_t == Val(:TriB) ? cin : vin
-	u⃗ = if colpt_type(grid_t, :u⃗) == :edge
-		pflow.u⃗[upin[1], upin[2], upin[3]]
-	else
-		[pflow.u⃗[iTH, upin[1], upin[2], upin[3]] for iTH=1:2]
-	end
-	b = pflow.b[spin[1], spin[2], spin[3]]
-	η = pflow.η[spin[1], spin[2], spin[3]]
-	w = pflow.w[spin[1], spin[2], spin[3]]
-	p = pflow.p[spin[1], spin[2], spin[3]]
-	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[spin[1], spin[2], spin[3]]
-	u⃗ᵀ∇b̄ = let
-		_u⃗  = ϵ * [dflow.u⃗[iTH, vin[1], vin[2], vin[3]] for iTH=1:2]
-		∇b̄ = TriA.∇vv(VertexIndex((0,0,1)), vin, bflow.b[vin[1], vin[2], vin[3]])
-		∇b̄ = substitute.(∇b̄, Ref(Dict(GridOperatorAnalysis.le => _le)))
-		∇b̄ = Symbolics.simplify.(∇b̄; expand=true)
-		@show ∇b̄
-		_u⃗' * ∇b̄
-	end
-	ū⃗ᵀ∇b = let
-		ū⃗  = [bflow.u⃗[iTH, vin[1], vin[2], vin[3]] for iTH=1:2]
-		∇b = ϵ * Im * [k; l] * fflow.b[1]
-		ū⃗' * ∇b
-	end
-end;
-
-# ╔═╡ 61150eb4-c9ce-4fd8-8314-780b9c1c29b6
-u⃗⊥ = [-u⃗[2]; u⃗[1]];
-
-# ╔═╡ 0ad8eba1-f992-4f24-aa90-38ca629f8c72
-ϕ = let
-	ϕ = GridOperatorAnalysis.compute_phases(k, l, _le)
-	#for (k, v) in pairs(ϕ)
-	#	newv = Symbolics.simplify.(v; rewriter=rtrig)
-	#	newv = Symbolics.expand.(newv)
-	#	newv = Symbolics.substitute.(newv, Ref(sqrt3subs))
-	#	ϕ[k] = Symbolics.simplify.(newv)
-	#end
-	ϕ
-end;
-
-# ╔═╡ 3588e3e2-193d-4c1c-9dbf-c046803cface
-rtrig = let
-	function p(x)
-		 !isequal(x, _θU)
-	end
-	rcos = let
-		x = Symbolics.variable(:x)
-		cosx = Symbolics.taylor(cos(x),x,0:10; rationalize=false)
-		Symbolics.@rule cos(~x::p) => substitute(cosx, Dict([x=>~x]))
-	end
-	rsin = let
-		x = Symbolics.variable(:x)
-		sinx = Symbolics.taylor(sin(x),x,0,0:10; rationalize=false)
-		Symbolics.@rule sin(~x::p)=>substitute(sinx, Dict([x=>~x]))
-	end
-	SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(SymbolicUtils.RestartedChain([rcos, rsin])))
-end
-
-# ╔═╡ 9bc2c550-4008-42fc-9ac0-607d49f8f319
-# ╠═╡ disabled = true
-#=╠═╡
-jac = let
-	#jac = eady_jacobian_wo_mtk(Val(grid_t), _le; g, f₀, N², Ri=_Ri, Nz=32, 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, θU=θU, β=β, hmt_scheme, hst_scheme, dissip_scheme)
-	@showtime jac = GridOperatorAnalysis.eady_jacobian(Val(grid_t), k, l, _le; ϕ, g=_g, f₀=_f₀, Ri=_Ri, N²=_N², 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ, Nz=16, θU, β, hmt_scheme, hst_scheme, dissip_scheme)
-	#jac = substitute.(jac, Ref(Dict(_g => g, _f₀ => f₀, _N² => N²)))
-	#@showtime jac = Symbolics.expand.(jac)
-	#@showtime Symbolics.simplify_fractions.(jac)
-	#@showtime jac = Symbolics.simplify.(jac; rewriter=rtrig)
-	#@showtime jac = substitute.(jac, Ref(sqrt3subs))
-	#@showtime jac = Symbolics.simplify_fractions.(jac)	
-end;
-  ╠═╡ =#
-
 # ╔═╡ e3bc1fcc-fb96-404f-8204-675174b3afe1
 md"""
 ## Plotting
@@ -713,7 +660,7 @@ df = let
 	les = [6.25e3, 12.5e3]
 	𝕍ᵘs = [0.0, 0.005]
 	𝕍ᵇs = [0.0, 0.005]
-	savepath = joinpath(@__DIR__, "..", "data", "allsims.csv")
+	savepath = joinpath(@__DIR__, "..", "data", "newsims.csv")
 	if isfile(savepath)
 		df = CSV.read(savepath, DataFrame)
 		select(df, Not(:Ks, :iωs), :Ks => ByRow(x->eval(Meta.parse(x))) => :Ks, :iωs => ByRow(x-> eval(Meta.parse(x))) => :iωs)
@@ -829,34 +776,35 @@ end;
 
 # ╔═╡ c29f6ae0-e69b-4ad8-8615-8dd9a4aee408
 floataside(md"""
-Flow direction: $(@bind θU PlutoUI.Slider([0.0, π/12, π/6]; show_value=true))
+Flow direction: $(@bind sθU PlutoUI.Slider([0.0, π/12, π/6]; show_value=true))
 
-Flow shift (in -HM²/f₀): $(@bind β PlutoUI.Slider(-0.5:0.1:0.5; default=0.0, show_value=true))
+Flow shift (in -HM²/f₀): $(@bind sβ PlutoUI.Slider(-0.5:0.1:0.5; default=0.0, show_value=true))
 
-le: $(@bind le PlutoUI.Slider([1e-28, 1.575e3, 3.125e3, 6.25e3, 12.5e3, 25e3]; default=6.25e3, show_value=true))
+le: $(@bind sle PlutoUI.Slider([1e-28, 1.575e3, 3.125e3, 6.25e3, 12.5e3, 25e3]; default=6.25e3, show_value=true))
 
-Ri: $(@bind Ri Select([100//1, 1//2]; default=100//1))
+Ri: $(@bind sRi Select([100//1, 1//2]; default=100//1))
 
-Vᵘ: $(@bind Vᵘ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
+hst-scheme: $(@bind shst_scheme Select([:low => "low-order accurate", :high => "high-order accurate"]))
 
-Vᵇ: $(@bind Vᵇ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
+Vᵘ: $(@bind sVᵘ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
+
+Vᵇ: $(@bind sVᵇ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
 """)
 
 # ╔═╡ 4767f71a-fd13-4c26-8ec4-bf16ac6028a4
 if dissip_scheme == :biharmonic
-	𝕂ᵘ = Vᵘ * le^3
-	𝕂ᵇ = Vᵇ * le^3
+	s𝕂ᵘ = sVᵘ * sle^3
+	s𝕂ᵇ = sVᵇ * sle^3
 else
-	𝕂ᵘ = Vᵘ * le
-	𝕂ᵇ = Vᵇ * le
-end
+	s𝕂ᵘ = sVᵘ * sle
+	s𝕂ᵇ = sVᵇ * sle
+end;
 
 # ╔═╡ 69f7116f-5062-43b3-a004-acd5de35ed1e
 let
 	Ri     = 100
-	size   = Ri > 1 ? (1500, 550) : (1400, 500)
-	fₛ     = min(1e-2, 2/√3*π/le)
-		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	size   = Ri > 1 ? (1400, 500) : (1400, 500)
+	fₛ     = min(1e-2, 2/√3*π/sle)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -866,8 +814,8 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 3.0 : 2.5
-	limits = Ri > 1 ? (0.0, 1.0, -0.02, 0.38) : (0.0, 1.1, -0.1, 1.0)
+	aspect = Ri > 1 ? 3.4 : 2.5
+	limits = Ri > 1 ? (0.0, 1.01, -0.02, 0.38) : (0.0, 1.01, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
 	
 	f = Figure(; size, fontsize=36)
@@ -878,13 +826,15 @@ let
 			 aspect,
 			 limits,
 			 )
-	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==100, :dissip_scheme=>x->Symbol.(x).==:harmonic)
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==100, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t))"* (grid_t == "TriA" ? "" : ":$(String(hmt_scheme))"), linewidth=3)
 	end
+	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈100))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
 	#axislegend()
-	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=36);
+	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30);
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
@@ -892,9 +842,8 @@ end
 # ╔═╡ 953ca291-388d-4689-a891-fcdd62b659f7
 let
 	Ri     = 100
-	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, 2/√3*π/le)
-		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
+	size   = Ri > 1 ? (1400, 600) : (1400, 500)
+	fₛ     = min(1e-2, 2/√3*π/sle)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -904,25 +853,26 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
+	aspect = Ri > 1 ? 2.6 : 2.5
+	limits = Ri > 1 ? (0.0, 1.01, -0.2, 0.42) : (0.0, 1.01, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
-	
-	f = Figure(; size, fontsize=36)
-	ax = Axis(f[1,1];
+	f      = Figure(; size, fontsize=36)
+	ax     = Axis(f[1,1];
 			 xlabel = "wavenumber / fₛ",
 			 ylabel = "growth rate / N M⁻²",
 			 xticks,
 			 aspect,
 			 limits,
 			 )
-	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈Vᵘ*le^3, :𝕂ᵇ=>x->x.≈Vᵇ*le^3, :Ri=>x->x.==100, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈sVᵘ*sle^3, :𝕂ᵇ=>x->x.≈sVᵇ*sle^3, :Ri=>x->x.==100, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
-		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
+		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label=label="$(String(grid_t))"* (grid_t == "TriA" ? "" : ":$(String(hmt_scheme))"), linewidth=3)
 	end
+	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈100))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
 	#axislegend()
-	f[1,2] = Legend(f, ax; merge=true, valign=:top);
+	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30)
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
@@ -931,7 +881,7 @@ end
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, 2/√3*π/le)
+	fₛ     = min(1e-2, 2/√3*π/sle)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -942,7 +892,7 @@ let
 		(xs, ls)
 	end
 	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
+	limits = Ri > 1 ? (0.0, 1.01, -0.1, 0.4) : (0.0, 1.01, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
 	
 	f = Figure(; size, fontsize=36)
@@ -953,11 +903,13 @@ let
 			 aspect,
 			 limits,
 			 )
-	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:harmonic)
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
 	end
+	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈0.5))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
 	#axislegend()
 	f[1,2] = Legend(f, ax; merge=true, valign=:top);
 	colsize!(f.layout, 1, Aspect(1, aspect))
@@ -968,7 +920,7 @@ end
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, 2/√3*π/le)
+	fₛ     = min(1e-2, 2/√3*π/sle)
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -990,11 +942,13 @@ let
 			 aspect,
 			 limits,
 			 )
-	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈Vᵘ*le^3, :𝕂ᵇ=>x->x.≈Vᵇ*le^3, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈sVᵘ*sle^3, :𝕂ᵇ=>x->x.≈sVᵇ*sle^3, :Ri=>x->x.==Ri, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
 	end
+	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈0.5))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
 	#axislegend()
 	f[1,2] = Legend(f, ax; merge=true, valign=:top);
 	colsize!(f.layout, 1, Aspect(1, aspect))
@@ -1004,8 +958,8 @@ end
 # ╔═╡ 8d013161-0743-4907-b133-1f2bacbcc1d1
 let
 	Ri = 100
-	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
-	fₛ     = min(1e-2, 2/√3*π/le)
+	size   = Ri > 1 ? (1400, 2*500) : (1400, 2*500)
+	fₛ     = min(1e-2, 2/√3*π/sle)
 		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
@@ -1016,49 +970,8 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
-	M²     = √(N² * f₀^2 / Ri)
-	
-	f = Figure(; size, fontsize=36)
-	for (i, β) in enumerate([0, 0.5])
-		ax = Axis(f[i,1];
-				 xlabel = "wavenumber / fₛ",
-				 ylabel = "growth rate / N M⁻²",
-				 xticks,
-				 aspect,
-				 limits,
-				 )
-		subdf = subset(df, :β=>x->x.≈β, :θU=>x->x.≈θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
-		for row in eachrow(subdf)
-			(; Ks, iωs, grid_t, hmt_scheme) = row
-			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
-		end
-		f[i,2] = Legend(f, ax; merge=true, valign=:top)
-		#Label(f[i,1, TopLeft()], "($i)", )
-	end
-	#axislegend()
-	colsize!(f.layout, 1, Aspect(1, aspect))
-	f
-end
-
-# ╔═╡ 10f7c553-6875-4d22-be26-58947e8a381d
-let
-	Ri = 1/2
-	size   = Ri > 1 ? (1400, 2*700) : (1400, 2*500)
-	fₛ     = min(1e-2, 2/√3*π/le)
-		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
-	xticks = if Ri > 1
-		xs = collect(0.0:1/8:1.1)
-    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
-    	(xs, ls)
-	else
-		xs = collect(0.0:1/4:1.1)
-    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
-		(xs, ls)
-	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
+	aspect = Ri > 1 ? 3.4 : 2.5
+	limits = Ri > 1 ? (0.0, 1.01, -0.02, 0.38) : (0.0, 1.01, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
 	
 	f = Figure(; size, fontsize=36)
@@ -1070,12 +983,14 @@ let
 				 aspect,
 				 limits,
 				 )
-		subdf = subset(df, :β=>x->x.==β, :θU=>x->x.≈θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.≈0.0, :𝕂ᵇ=>x->x.≈0.0, :Ri=>x->x.==Ri, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
+		subdf = subset(df, :β=>x->x.≈sβ, :θU=>x->x.≈θU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈sVᵘ*sle^3, :𝕂ᵇ=>x->x.≈sVᵇ*sle^3, :Ri=>x->x.==Ri, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
 		for row in eachrow(subdf)
 			(; Ks, iωs, grid_t, hmt_scheme) = row
-			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
+			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label= grid_t == "TriA" ? "$(String(grid_t))" : "$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
 		end
-		f[i,2] = Legend(f, ax; merge=true, valign=:top)
+		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈100))
+		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
+		axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30)
 		#Label(f[i,1, TopLeft()], "($i)", )
 	end
 	#axislegend()
@@ -1083,10 +998,12 @@ let
 	f
 end
 
-# ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+# ╔═╡ 10f7c553-6875-4d22-be26-58947e8a381d
 let
-	size   = Ri > 1 ? (1400, 700) : (1400, 500)
-	fₛ     = min(1e-2, 2/√3*π/le)
+	Ri = 1/2
+	size   = Ri > 1 ? (1400, 2*500) : (1400, 2*500)
+	fₛ     = min(1e-2, 2/√3*π/sle)
+		#min(1e-2, π/le * 2/√3 / norm(inv([1;0;;0.5;√3/2]) * [cos(θU); sin(θU)], 1))
 	xticks = if Ri > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
@@ -1096,9 +1013,51 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 1.5 : 2.5
-	limits = Ri > 1 ? (0.0, 1, -0.1, 0.4) : (0.0, 1, -0.1, 1.0)
+	aspect = Ri > 1 ? 3.4 : 3.4
+	limits = Ri > 1 ? (0.0, 1.01, -0.02, 0.38) : (0.0, 1.01, -0.1, 1.0)
 	M²     = √(N² * f₀^2 / Ri)
+	
+	f = Figure(; size, fontsize=36)
+	for (i, θU) in enumerate([0, π/6])
+		ax = Axis(f[i,1];
+				 xlabel = "wavenumber / fₛ",
+				 ylabel = "growth rate / N M⁻²",
+				 xticks,
+				 aspect,
+				 limits,
+				 )
+		subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.≈θU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈sVᵘ*sle^3, :𝕂ᵇ=>x->x.≈sVᵇ*sle^3, :Ri=>x->x.==Ri, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic)
+		for row in eachrow(subdf)
+			(; Ks, iωs, grid_t, hmt_scheme) = row
+			lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label= grid_t == "TriA" ? "$(String(grid_t))" : "$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
+		end
+		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈0.5))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
+		axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30)
+		#f[i,2] = Legend(f, ax; merge=true, valign=:top)
+		#Label(f[i,1, TopLeft()], "($i)", )
+	end
+	#axislegend()
+	colsize!(f.layout, 1, Aspect(1, aspect))
+	f
+end
+
+# ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+let
+	size   = sRi > 1 ? (1400, 500) : (1400, 500)
+	fₛ     = min(1e-2, 2/√3*π/sle)
+	xticks = if sRi > 1
+		xs = collect(0.0:1/8:1.1)
+    	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
+    	(xs, ls)
+	else
+		xs = collect(0.0:1/4:1.1)
+    	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
+		(xs, ls)
+	end
+	aspect = sRi > 1 ? 3.4 : 3.4
+	limits = sRi > 1 ? (0.0, 1.01, -0.02, 0.38) : (0.0, 1.01, -0.1, 1.0)
+	M²     = √(N² * f₀^2 / sRi)
 	
 	f = Figure(; size, fontsize=36)
 	ax = Axis(f[1,1];
@@ -1109,21 +1068,39 @@ let
 			 limits,
 			 )
 	if dissip_scheme == :biharmonic
-		𝕂ᵘ = Vᵘ * le^3
-		𝕂ᵇ = Vᵇ * le^3
+		𝕂ᵘ = sVᵘ * sle^3
+		𝕂ᵇ = sVᵇ * sle^3
 	else
-		𝕂ᵘ = Vᵘ * le
-		𝕂ᵇ = Vᵇ * le
+		𝕂ᵘ = sVᵘ * sle
+		𝕂ᵇ = sVᵇ * sle
 	end
-	subdf = subset(df, :β=>x->x.==β, :θU=>x->x.==θU, :le=>x->x.==le, :𝕂ᵘ=>x->x.==𝕂ᵘ, :𝕂ᵇ=>x->x.==𝕂ᵇ, :Ri=>x->x.==Ri, :grid_t=>x->x.=="TriB")
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈𝕂ᵘ, :𝕂ᵇ=>x->x.≈𝕂ᵇ, :Ri=>x->x.==sRi, :grid_t=>x->x.=="TriB")
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
 	end
-	#axislegend()
-	f[1,2] = Legend(f, ax; merge=true, valign=:top);
-	colsize!(f.layout, 1, Aspect(1, aspect))
+	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈sRi))
+	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
+	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30)
 	f
+end
+
+# ╔═╡ 3588e3e2-193d-4c1c-9dbf-c046803cface
+rtrig = let
+	function p(x)
+		 !isequal(x, θU)
+	end
+	rcos = let
+		x = Symbolics.variable(:x)
+		cosx = Symbolics.taylor(cos(x),x,0:10; rationalize=false)
+		Symbolics.@rule cos(~x::p) => substitute(cosx, Dict([x=>~x]))
+	end
+	rsin = let
+		x = Symbolics.variable(:x)
+		sinx = Symbolics.taylor(sin(x),x,0,0:10; rationalize=false)
+		Symbolics.@rule sin(~x::p)=>substitute(sinx, Dict([x=>~x]))
+	end
+	SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(SymbolicUtils.RestartedChain([rcos, rsin])))
 end
 
 # ╔═╡ abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
@@ -1221,7 +1198,7 @@ function assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ, �
 	end
 
 	for eq in sys.state
-		eq .= substitute.(eq, Ref(Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le)))
+		eq .= substitute.(eq, Ref(Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>le)))
 		eq .= [Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1)) for expr in eq]
 	end
 end
@@ -1229,7 +1206,7 @@ end
 # ╔═╡ f0f59948-54d8-477e-b2cb-595f68ca13b2
 begin
 	sys = construct_lcc_sys(grid_t, Vector{Num})
-	assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ=_𝕂ᵘ, 𝕂ᵇ=_𝕂ᵇ)
+	assemble_sys!(sys, vterms, bterms, ηterms, wterms, pterms; 𝕂ᵘ=𝕂ᵘ, 𝕂ᵇ=𝕂ᵇ)
 end;
 
 # ╔═╡ 3e557bf0-c8aa-49d5-8860-03465dc06731
@@ -1246,6 +1223,7 @@ function lowestorder(expr)
 end
 
 # ╔═╡ 3ff311ec-aaaf-42f1-b11a-25be4632192c
+#=╠═╡
 function exactop(iH, cp_t_out, expr)
 	expr = substitute(expr, Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le))
 	expr = Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1))
@@ -1254,13 +1232,14 @@ function exactop(iH, cp_t_out, expr)
 	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
 	Symbolics.simplify(fexpr; expand=true)
 end
+  ╠═╡ =#
 
 # ╔═╡ 4efa8fb3-a6a9-4e73-8d61-8c7c45f0d35f
 function exactop(fexpr)
 	fexpr = Symbolics.simplify(fexpr; expand=true, rewriter=rtrig)
 	fexpr = Symbolics.simplify(fexpr)
 	fexpr = lowestorder(fexpr)
-	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
+	fexpr = substitute(fexpr, Dict(le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
 	Symbolics.simplify(fexpr; expand=true)
 end
 
@@ -1335,43 +1314,71 @@ jac = lowering_sys(grid_t, fsys, fflow; Nz=16);
 
 # ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
 fun = let
-	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, _Ri, _le, _f₀, _g, _N², _𝕂ᵘ, _𝕂ᵇ, _θU; expression=Val{false})
+	@inline function f(x::Int)
+		nothing
+	end
+	@inline function f(x::Real)
+		convert(Float64, x)
+	end
+	@inline function f(x)
+		nothing
+	end
+	r = Symbolics.@rule ~a => f(~a)
+	rewriter = SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(f))
+	@showtime jac .= Symbolics.simplify.(jac; rewriter)
+	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, Ri, le, _f₀, _g, _N², 𝕂ᵘ, 𝕂ᵇ, θU, β; expression=Val{false})
 end;
 
 # ╔═╡ ab60e360-e826-496d-b382-e868f640d85c
 Ks, iωs = let
-	θ = (Ri > 1 ? 0 : π/2) + θU
-    Kmax = min(1e-2, 2/√3*π/le)
-	#min(1e-2, π/le * 2 / norm(inv([1;0;;0.5;√3/2]) * [cos(mod(θ, π/3)); sin(mod(θ, π/3))], 1))
-	if dissip_scheme == :biharmonic
-		𝕂ᵘ = Vᵘ * le^3
-		𝕂ᵇ = Vᵇ * le^3
-	else
-		𝕂ᵘ = Vᵘ * le
-		𝕂ᵇ = Vᵇ * le
-	end
+	θ = (sRi > 1 ? 0 : π/2) + sθU
+    Kmax = min(1e-2, 2/√3*π/sle)
     Ks  = range(1e-10, Kmax, 500)
     iωs = Complex{Float64}[]
+	njac = zeros(ComplexF64, size(jac)...)
     for K in Ks
         k = K * cos(θ)
 		l = K * sin(θ)
 
-		#jac = [ComplexF64(eady_jac[i,j](k, l, le, Ri, N², g, f₀, 𝕂ᵘ, 𝕂ᵇ, θU, β)) for i=1:size(eady_jac,1), j=1:size(eady_jac,2)]
-		jac = [-ComplexF64(fun[i,j](k,l, Ri, le, f₀, g, N², 𝕂ᵘ, 𝕂ᵇ, θU)) for i=1:size(fun,1), j=1:size(fun,2)]
-
-        vals, vecs = eigen(jac)
+		for i=1:size(fun, 1), j=1:size(fun,2)
+			njac[i,j] = -fun[i,j](k,l, sRi, sle, f₀, g, N², s𝕂ᵘ, s𝕂ᵇ, sθU, sβ)
+		end
+        vals, vecs = eigen(njac)
         push!(iωs, vals[end])
     end
 	(Ks, iωs)
 end
 
+# ╔═╡ a34aca42-98e0-429c-aba6-a2893e5ad983
+# ╠═╡ disabled = true
+#=╠═╡
+begin
+	eadyinstance = Dict(
+        :Ri            => 100.0,
+        :θU            => 0,
+        :β             => 0,
+        :𝕂ᵘ            => 0,
+        :𝕂ᵇ            => 0,
+        :grid_t        => "ideal",
+        :hmt_scheme    => "ideal",
+        :hst_scheme    => "ideal",
+        :dissip_scheme => "ideal",
+        :le            => 0.0,
+        :Nz            => 80,
+        :Ks            => Ks,
+        :iωs           => iωs
+    )
+	push!(df, eadyinstance)
+end
+  ╠═╡ =#
+
 # ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
 let
-	size   = Ri > 1 ? (1500, 550) : (1400, 500)
-	θ = (Ri > 1 ? 0 : π/2) + θU
-	fₛ     = min(1e-2, 2/√3*π/le)
+	size   = sRi > 1 ? (1500, 550) : (1400, 500)
+	θ      = (sRi > 1 ? 0 : π/2) + sθU
+	fₛ     = min(1e-2, 2/√3*π/sle)
 	#fₛ = 2/√3*π/6.25e3
-	xticks = if Ri > 1
+	xticks = if sRi > 1
 		xs = collect(0.0:1/8:1.1)
     	ls = ["0.0", "1/8", "1/4","3/8", "1/2","5/8", "3/4","7/8", "1"]
     	(xs, ls)
@@ -1380,9 +1387,9 @@ let
     	ls = ["0.0", "1/4", "1/2", "3/4", "1"]
 		(xs, ls)
 	end
-	aspect = Ri > 1 ? 3.0 : 2.5
-	limits = Ri > 1 ? (0.0, 1.0, -0.02, 0.38) : (0.0, 1.1, -0.1, 1.0)
-	M²     = √(N² * f₀^2 / Ri)
+	aspect = sRi > 1 ? 3.0 : 2.5
+	limits = sRi > 1 ? (0.0, 1.0, -0.1, 0.4) : (0.0, 1.1, -0.1, 1.0)
+	M²     = √(N² * f₀^2 / sRi)
 	
 	f = Figure(; size, fontsize=36)
 	ax = Axis(f[1,1];
@@ -1392,14 +1399,17 @@ let
 			 aspect,
 			 limits,
 			 )
-	lines!(ax, Ks./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t)):$(String(hmt_scheme))", linewidth=3)
+	lines!(ax, Ks./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t))", linewidth=3)
+	let
+		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈s𝕂ᵘ, :𝕂ᵇ=>x->x.≈s𝕂ᵇ, :Ri=>x->x.==sRi, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic))
+		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t)): fully discr.", linewidth=4, linestyle=:dot, color=:black)
+	end
 	axislegend()
-	#f[1,2] = Legend(f, ax; merge=true, valign=:top);
-	#colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
 
 # ╔═╡ 2ced61a3-8306-423f-b0f7-71ab9906186a
+#=╠═╡
 function exactops(grid_t)
 	if grid_t == Val(:TriA)
 		∇ᵀu⃗ = let
@@ -1530,10 +1540,12 @@ function exactops(grid_t)
 		(;)
 	end
 end
+  ╠═╡ =#
 
 # ╔═╡ Cell order:
 # ╠═500f352c-6e16-11f0-215d-4f5a3075cb33
 # ╟─534dfd2f-f7e5-4253-83dc-0be9e94cba01
+# ╠═1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 # ╠═b02f29a5-7f20-49dd-aa0a-9b30d8b4a1ed
 # ╠═e653beef-bd70-4f94-867c-b802f416408e
 # ╠═99dab097-3490-46cb-bf26-62b60b51d3c2
@@ -1569,26 +1581,22 @@ end
 # ╟─51c00889-ad8c-400d-b764-a4261e5a76e1
 # ╠═4867203f-402e-4d3a-8ad0-ef0ba8478ed1
 # ╠═5ad386c4-1dfa-4c20-b7ab-e6a2d13ae1ce
-# ╠═a77404c3-511d-4ae6-9e6c-2da0cf490ee9
 # ╠═a2687cd8-4e59-414a-8560-e8293935e6b0
 # ╟─cf11e62e-ee93-4b2f-9cdc-2cb228ca040c
 # ╟─c29f6ae0-e69b-4ad8-8615-8dd9a4aee408
 # ╠═28470719-44cf-4b6a-a515-29f7f6a4acb2
 # ╠═7c1d69bf-8612-4072-95b5-27b57e59b2ac
 # ╠═944eb1fc-3207-48fe-bec3-97f73e7a523a
-# ╠═ab60e360-e826-496d-b382-e868f640d85c
-# ╠═1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
-# ╠═0ad8eba1-f992-4f24-aa90-38ca629f8c72
-# ╟─3588e3e2-193d-4c1c-9dbf-c046803cface
-# ╠═9bc2c550-4008-42fc-9ac0-607d49f8f319
 # ╠═c6332760-298c-42f0-ba13-0936cab3fdcd
+# ╠═ab60e360-e826-496d-b382-e868f640d85c
+# ╠═a34aca42-98e0-429c-aba6-a2893e5ad983
 # ╟─e3bc1fcc-fb96-404f-8204-675174b3afe1
-# ╠═b15d7752-cf88-4e49-95c2-69935c08f448
-# ╠═be945a73-9afb-4b9a-ac78-4514fbb0e33e
+# ╟─b15d7752-cf88-4e49-95c2-69935c08f448
+# ╟─be945a73-9afb-4b9a-ac78-4514fbb0e33e
 # ╠═70f46342-4b5c-45ce-9bf9-13a44fd780fc
 # ╟─3adadede-5704-441f-9756-08f0f820c723
 # ╟─2bfe2cd8-cf70-4efa-a0d2-5a3fe447e9e8
-# ╠═69f7116f-5062-43b3-a004-acd5de35ed1e
+# ╟─69f7116f-5062-43b3-a004-acd5de35ed1e
 # ╟─a371a682-d689-4147-8c8f-49a65a29cd8e
 # ╟─953ca291-388d-4689-a891-fcdd62b659f7
 # ╟─ffc466bf-7d98-4de1-9c12-0e8e2d559ed5
@@ -1606,6 +1614,7 @@ end
 # ╟─5f414b9f-342d-4e80-8b72-ebc306b0cc78
 # ╟─6e93f103-3988-4a68-8804-eabc14f12f5d
 # ╟─5d57177f-c6c5-496f-942f-755b25fa957d
+# ╟─3588e3e2-193d-4c1c-9dbf-c046803cface
 # ╠═abcf94dc-cfac-47e6-b903-7fbf3a63a7aa
 # ╟─c9ac2630-ea0e-4048-a161-8c9f925d1d20
 # ╠═d35d5d13-d7a2-44ee-8855-be4aa31edf4c

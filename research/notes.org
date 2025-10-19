@@ -98,11 +98,11 @@ The presented work is inspired by the analysis carried out by
 discretization of ICON-o and FESOM. We study how well triangular-mesh
 discretization can represent linear symmetric and baroclinic
 instabilities in the Eady problem configuration. Same as in
-\cite{Barham2018}, we use hydrostatic and the Boussinesq
-approximation, and consider the buoyancy as a single scalar field. We
-also consider the effect of several momentum advection schemes,
+\cite{Barham2018}, we use the hydrostatic and the Boussinesq
+approximations, and consider the buoyancy as a single scalar field. We
+also analyze the effect of several momentum advection schemes,
 including the vector-invariant scheme for the B grid, which is shown
-to trigger the Hollingsworth instability. ....
+to trigger the Hollingsworth instability.
 
 Due to the presence of spurious modes the analysis is more cumbersome,
 and we present necessary preliminary information and detailed
@@ -118,7 +118,7 @@ triangular A grid formulation will be relegated to the appendix.
 ** triangular B Grid
 On a structured triangular B grid the horizontal velocities are
 located at the centroids of the triangles. In a finite volume
-formulation their values are interpreted as the mean on the
+formulation their values may be interpreted as the mean on the
 resprective triangles which are called \textit{cells} in this
 context. The scalar quantities such as surface height, pressure,
 buoyancy and vertical velocity are staggered with respect to the
@@ -126,6 +126,14 @@ horizontal velocities and are collocated at the vertices of the
 grid. Their values may be interpreted as mean values on the control
 volumes of the dual mesh. Note that the dual mesh of a structured
 triangular grid is a hexagonal grid (see Figure ???).
+
+In the language of crystallography the collocation points of the
+scalar quantities form a hexagonal lattice. Each primitive unit cell
+contains two grid points of horizontal velocity. In particular, these
+grid points form two hexagonal lattices. The mismatch in degrees of
+freedom allows for spurious/geometric modes that need to be dissipated
+by an appropriate viscosity operator \cite{???}.
+
 
 | Notation        | Interpretation on Tri-B                   |
 |-----------------+-------------------------------------------|
@@ -141,45 +149,60 @@ triangular grid is a hexagonal grid (see Figure ???).
 | $V(e)$          | set of dual control volumes with face e   |
 |-----------------+-------------------------------------------|
 
+*** Operators
 The horizontal discretization of the governing equations may be
-formulated in terms of discrete analogous of the differential
-operators. Using the notation of \cite{Danilov2017} (see table ...)
-discrete analogues of the gradient of a scalar quantity, the
-divergence of a flux, and the curl of the horizontal velocity are
-given by the following three expressions.
+formulated in terms of discrete analogs of the differential operators.
+The discrete operators may be interpreted as (the sum of pointwise
+products of) discrete convolutions on these lattices. The kernels may
+be defined on a lattice ismorphic to the lattice of the respective
+input signal but shifted to a collocation point of the respective
+output signal. The Fourier symbol of a discrete operator corresponding
+to a constant coefficient convolution kernel is then given by the discrete
+Fourier transform of the respective convolution kernels.
 
-\begin{equation*}
+Using the notation of \cite{Danilov2017} (see table ...)  discrete
+analogs of the gradient of a scalar quantity, the divergence of a
+flux, and the curl of the horizontal velocity are given by the
+following three expressions.
+
+\begin{subequations}
+\begin{equation}
 \big( \nabla \boldsymbol{p}\big)_c
 =\frac{1}{A_c} \sum_{e\in E(c)} \Vec{n}_{c,e}\ell_e \frac{1}{2}\sum_{v\in V(e)} p_v
-\end{equation*}
-
-\begin{equation*}
+\end{equation}
+\begin{equation}
 \big(\nabla\cdot\boldsymbol{\Vec{F}}\big)_v
 = \frac{1}{A_v} \sum_{e\in E(v)} \sum_{c\in C(e)} d_e \Vec{n}_{v,e} \cdot \Vec{F}_c
-\end{equation*}
-
-\begin{equation*}
+\end{equation}
+\begin{equation}
 \Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}}\big) \Big)_v = \sum_{e\in E(v)} \sum_{c\in C(e)} \frac{\ell_e}{2} \Vec{n}_{v,e}^\perp \cdot \Vec{u}_c
-\end{equation*}
+\end{equation}
+\end{subequations}
+
+The discrete gradient operator acting on the pressure field averages
+the pressure values along edges and identifies the gradient with the
+normal to the unique plane defined by the pressure averages on the
+three boundary edges of the respective cell. On a structured grid the
+Fourier symbol of the operator has the form $$\begin{bmatrix} g_x^u &
+g_x^d & g_y^u & g_y^d\end{bmatrix}^T$$ where $g_x$ and $g_y$ are the
+components of the gradient and the superscript indicates the lattice
+of upward-pointing and downward-pointing cells respectively. Due to
+symmetry the respective components of the gradient on the two lattices
+are related: $g^d = -\left(g^u\right)^*$. The Fourier symbol of the
+gradient on the lattice of upward-pointing cells satifies the following relation
+\begin{equation}
+\begin{bmatrix}
+g_x^u \\ g_y^u
+\end{bmatrix}=
+\begin{bmatrix}
+\frac{ - \cos\left(  - \frac{1}{2} a k - \frac{1}{3} h l \right) + \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{a} + \frac{ - \sin\left(  - \frac{1}{2} a k - \frac{1}{3} h l \right) + \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{a} \mathit{i}\\
+\frac{ - \cos\left(  - \frac{1}{2} a k - \frac{1}{3} h l \right) + 2 \cos\left( \frac{2}{3} h l \right) - \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{2 h} + \frac{ - \sin\left(  - \frac{1}{2} a k - \frac{1}{3} h l \right) + 2 \sin\left( \frac{2}{3} h l \right) - \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{2 h} \mathit{i}
+\end{bmatrix}
+\end{equation}
 
 The transport of momentum may be either discretized in the flux form
 or the advective form. In both cases different discretizations have
 been proposed \cite{???}. Here the analysis is restricted to ...
-
-In the language of crystallography the collocation points of the
-scalar quantities form a hexagonal lattice. Each primitive unit cell
-contains two grid points of horizontal velocity. In particular, these
-grid points form two hexagonal lattices. The mismatch in degrees of
-freedom allows for spurious modes that need to be dissipated by an
-appropriate viscosity operator \cite{???}.
-
-The discrete operators may be interpreted as (the sum of pointwise products of)
-discrete convolutions on these lattices. The kernels may be defined on
-a lattice ismorphic to the lattice of the respetive input signal but
-shifted to a collocation point of the respective output signal. The
-Fourier symbol of a linear discrete operator is then given by
-the discrete Fourier transform of the respective convolution kernels.
-
 
 *** geometry
 - cells: two lattices
@@ -588,6 +611,9 @@ $\Tilde{\mathcal{P}}^\dagger$.
 **** divergence
 **** gradient
 **** curl
+** Fourier symbols
+*** TODO Real part of the Fourier symbols seems to be incorrect
+There is 
 ** Implementation
 The influence of the horizontal discretization of the equations of
 motion on the most unstable modes in a baroclinically unstable flow is

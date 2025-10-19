@@ -75,7 +75,11 @@ The flow is parametrized by:
 - the Brunt-Väisälä frequency $\mathrm{N^2}$, 
 - the Coriolis frequency $f_0$ on the f-plane, 
 - the flow direction $θ_U$, 
-- and the flow shift $\beta$ (in $HM^2/f_0$).
+- and the flow shift $\beta$ (in $H\mathrm{M}^2/f_0$).
+
+From the thermal wind balance, the derivative of the buoyancy in meridional direction may be computed
+
+$$\mathrm{M}^2 = \sqrt{\frac{f₀^2* \mathrm{N}²}{\mathrm{Ri}}}.$$
 
 The flow on the mesh is restriced to a small neighborhood around the lattices' origins.
 """
@@ -244,9 +248,158 @@ md"""
 #### Eigenvalues of Fourier Symbols
 """
 
+# ╔═╡ 5d83c523-626f-4b06-85ee-8b71423d398a
+# ╠═╡ disabled = true
+#=╠═╡
+if doapproxs
+	svus = compute_symbolic_eigenvals(Symbolics.wrap.(T[1]))
+	svus = Symbolics.simplify.(svus; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
+end
+  ╠═╡ =#
+
+# ╔═╡ 30620b89-ced4-4353-bf3f-6d9c58794aa4
+# ╠═╡ disabled = true
+#=╠═╡
+if doapproxs
+	svvs = compute_symbolic_eigenvals(Symbolics.wrap.(T[2]))
+	svvs = Symbolics.simplify.(svvs; expand=true)
+else
+	"Computation of symbolic eigenvalues not implemented in this case."
+end
+  ╠═╡ =#
+
+# ╔═╡ 9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
+#=╠═╡
+let
+	K̃s, ωs = let
+		K̃s = range(1e-20, π, 100) #floatmin(Float64)
+		ωs = []
+		if doapproxs
+			for svu in svus
+				svu    = substitute(svu, Dict(
+					θU    => 0, 
+					h     => K̃ / K, 
+					a     => K̃ / K * 2 / √3, 
+					sqrt3 => √3))
+				svu    = simplify(svu; expand=true)
+				vfunc = Symbolics.build_function(svu, K̃; expression=Val(false))
+				push!(ωs, vfunc.(K̃s))
+			end
+		else
+			A = substitute.(T[1], Ref(Dict(
+				θU => 1e-30, 
+				h => K̃ / K, 
+				a => K̃ / K * 2 / √3, 
+				sqrt3 => √3
+			)))
+			A = simplify.(A; expand=true)
+			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+			for k̃ in K̃s
+				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+				push!(ωs, values)
+			end
+		end
+		(K̃s, ωs)
+	end
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / -\mathrm{M²}\sin(θU)",
+			 limits = (0, π, 0, 2), 
+			 aspect = 1,
+			 )
+	if doapproxs
+		for ω in ωs
+			lines!(ax, K̃s, real.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, real(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
+  ╠═╡ =#
+
+# ╔═╡ 5361ebe0-a415-416c-b57f-051b0e6382f6
+#=╠═╡
+let
+	K̃s, ωs = let
+		K̃s = range(1e-20, π, 100) #floatmin(Float64)
+		ωs = []
+		if doapproxs
+			for svv in svvs
+				svv = substitute(svv, Dict(
+					θU    => 0, 
+					h     => K̃ / K, 
+					a     => K̃ / K * 2 / √3, 
+					sqrt3 => √3))
+				svv   = simplify(svv; expand=true)
+				vfunc = Symbolics.build_function(svv, K̃; expression=Val(false))
+				push!(ωs, vfunc.(K̃s))
+			end
+		else
+			A = substitute.(T[2], Ref(Dict(
+				θU => 0, 
+				h => K̃ / K, 
+				a => K̃ / K * 2 / √3, 
+				sqrt3 => √3
+			)))
+			A = simplify.(A; expand=true)
+			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
+			for k̃ in K̃s
+				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
+				push!(ωs, values)
+			end
+		end
+		(K̃s, ωs)
+	end
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / \mathrm{M²}\cos(θU)",
+			 limits = (0, π, 0, 2), 
+			 aspect = 1,
+			 )
+	if doapproxs
+		for ω in ωs
+			lines!(ax, K̃s, real.(ω), linewidth=3)
+		end
+	else
+		for (k̃, ω) in zip(K̃s, ωs)
+			for _ω in ω
+				scatter!(ax, k̃, real(_ω); color=:blue)
+			end
+		end
+	end
+	#axislegend()
+	f
+end
+  ╠═╡ =#
+
 # ╔═╡ bc991b63-8e0e-4e37-9369-15f2e11e195e
 md"""
 ## Diffusion Operator
+"""
+
+# ╔═╡ 3bf9a733-0328-460e-9988-114f95e24bb6
+md"""
+## Gradient Operator
+"""
+
+# ╔═╡ 986a7932-d8aa-4478-a631-2b028cbf1ed5
+md"""
+Small wavenumber approximation: $(@bind doapproxg CheckBox(default=true))
+"""
+
+# ╔═╡ ed499209-af9f-4539-bcb1-c47d93912208
+md"""
+## Divergence Operator
 """
 
 # ╔═╡ 7d55ea61-e0f1-4bd9-a36c-22857ad145e7
@@ -381,7 +534,7 @@ hds = let
 	pb =  ϵ*dflow.b[cpb[1], cpb[2], cpb[3]] # bflow.b[cpb[1], cpb[2], cpb[3]] .+
 	hds = []
 	for biH=1:dims(colpt_type(flow_t, :b))
-		hd = HexC.Δ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpb, pb)
+		hd = TriB.Δ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpb, pb)
 		hd = substitute(hd, sqrt3_subs)
 		push!(hds, hd)
 	end
@@ -391,6 +544,49 @@ end;
 # ╔═╡ 1af2939c-6795-4472-ae44-8c9466a159ab
 lhds = [
 	expand(taylor_coeff(expand(hd), ϵ, 1)) for hd in hds
+];
+
+# ╔═╡ 5ce14648-6fc3-4efe-b73d-755afe57eddc
+hgs = let
+	cpu⃗ = colpts[colpt_type(flow_t, :u⃗)]
+	cpb = colpts[colpt_type(flow_t, :b)]
+	pb  =  ϵ*dflow.b[cpb[1], cpb[2], cpb[3]]
+	∇   = TriB.∇cv #gethst(grid_t, hst_scheme)
+	hgs = []
+	for uiH=1:dims(colpt_type(flow_t, :u⃗))
+		b  = pb
+		hg = ∇(colptidx(0,0,uiH,Val(colpt_type(flow_t, :u⃗))), cpb, b)
+		hg = substitute(hg, GridOperatorAnalysis.sqrt3_subs)
+		push!(hgs, hg)
+	end
+	hgs
+end;
+
+# ╔═╡ 8699ac4d-363d-4502-8353-5598e3e71591
+lhgs = if colpt_type(flow_t, :u⃗) == :edge
+	[expand(taylor_coeff(hgs[iH], ϵ, 1)) for iH=1:dims(colpt_type(flow_t, :u⃗))]
+else
+	[[expand(taylor_coeff(hgs[iH][iTH], ϵ, 1)) for iTH=1:2] for iH=1:dims(colpt_type(flow_t, :u⃗))]
+end;
+
+# ╔═╡ 5248fb8c-c5b7-4b60-a09e-30f7de30dc3d
+hns = let
+	cp = colpts[colpt_type(flow_t, :u⃗)]
+	pu⃗  = colpt_type(flow_t, :u⃗) == :edge ? ϵ*dflow.u⃗[cp[1], cp[2], cp[3]] : [ϵ*dflow.u⃗[iTH, cp[1], cp[2], cp[3]] for iTH=1:2]
+	∇ᵀ  = TriB.∇ᵀvc #gethst(grid_t, hst_scheme)
+	hns = []
+	for biH=1:dims(colpt_type(flow_t, :u⃗))
+		u  = pu⃗
+		hn = ∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :u⃗))), cp, u)
+		hn = substitute(hn, GridOperatorAnalysis.sqrt3_subs)
+		push!(hns, hn)
+	end
+	hns
+end;
+
+# ╔═╡ 9b9d9dc3-978a-42b0-a8e3-e934b27623ea
+lhns = [
+	expand(taylor_coeff(expand(hn), ϵ, 1)) for hn in hns
 ];
 
 # ╔═╡ 3782fb16-26b7-4edd-8591-ef119b1cabef
@@ -426,6 +622,25 @@ end;
 # ╔═╡ 4b2d9f6d-4438-436a-91cb-47fb66270841
 fhds = [
 	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhds[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
+];
+
+# ╔═╡ 49c1fe6e-725f-4de1-922e-9d091d5b70e7
+begin
+	fhgs = []
+	for iH=1:dims(colpt_type(flow_t, :u⃗))
+		if colpt_type(flow_t, :u⃗) == :edge
+			fhg = fourier_transform_expression(iH, colpt_type(flow_t, :u⃗), lhgs[iH]; fflow, dflow, ϕ)
+			push!(fhgs, fhg)
+		else
+			fhg = [fourier_transform_expression(iH, colpt_type(flow_t, :u⃗), lhgs[iH][iTH]; fflow, dflow, ϕ) for iTH=1:2]
+			push!(fhgs, fhg)
+		end
+	end		
+end;
+
+# ╔═╡ d04861c4-b170-49d4-84db-7a59bc5bafc4
+fhns = [
+	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhns[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
 ];
 
 # ╔═╡ d424025e-3efd-4c4b-8d97-7369ff3618da
@@ -535,7 +750,7 @@ hsts = let
 	u⃗∇ᵀ = gethst(grid_t, hst_scheme)
 	hsts = []
 	for biH=1:dims(colpt_type(flow_t, :b))
-		b = pb #- a^2/8*HexC.Δ(cpb, cpb, pb) #
+		b = pb# - a^2/24*TriC.ℳ(cpb, cpb, TriC.Δ(cpb, cpb, pb)) #
 		hst = u⃗∇ᵀ(colptidx(0,0,biH,Val(colpt_type(flow_t, :b))), cpu⃗, cpb, pu⃗, b)
 		hst = substitute(hst, GridOperatorAnalysis.sqrt3_subs)
 		push!(hsts, hst)
@@ -692,7 +907,14 @@ begin
 		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
-			F .= substitute.(F, Ref(Dict(h=> K̃ / K, sin(θU)^2=>1-cos(θU)^2, sin(θU)^4=>(1-cos(θU)^2)^2, sin(θU)^6=>(1-cos(θU)^2)^3))) #
+			F .= substitute.(F, Ref(Dict(
+				h=> K̃ / K, 
+				sin(θU)^2=>1-cos(θU)^2, 
+				sin(θU)^3=>sin(θU)*(1-cos(θU)^2),
+				sin(θU)^4=>(1-cos(θU)^2)^2,
+				sin(θU)^5=>sin(θU)*(1-cos(θU)^2)^2, 
+				sin(θU)^6=>(1-cos(θU)^2)^3
+			))) #
 			F .= simplify.(F; expand=true)
 			F .= substitute.(F, Ref(sqrt3_subs))
 		else
@@ -781,6 +1003,101 @@ begin
 	end
 	@show Fhd = simplify.(Fhd ./ -K^2; expand=true)
 end
+
+# ╔═╡ 5401495e-95d7-4a67-b567-c812ff2daed5
+sfhgs = let
+	colpt_t   = colpt_type(flow_t, :u⃗)
+	d         = dims(colpt_t)
+	colpt_t_b = colpt_type(flow_t, :b)
+	d_b       = dims(colpt_t_b)
+	sfhgs = if colpt_t == :edge
+		zeros(Complex{Symbolics.Num}, d, d_b)
+	else
+		zeros(Complex{Symbolics.Num}, 2, d, d_b)
+	end
+	for iH=1:d
+		fhg = let
+			fhg = expand.(fhgs[iH])
+			fhg = if doapproxg # rewrite trig-functions by Taylor polynomial
+				fhg = simplify.(fhg; rewriter=rtrig) .|> expand
+				substitute.(fhg, Ref(Dict(sqrt3 => 2*h/a)))
+			else
+				fhg = substitute.(fhg, Ref(Dict(l => h/a * 2/sqrt3 * l)))
+				substitute.(fhg, Ref(Dict(sqrt3 => 2*h/a)))
+			end
+			fhg = substitute.(fhg, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M²))) .|> expand
+			fhg = substitute.(fhg, Ref(sqrt3_subs)) .|> expand
+		end
+		if colpt_t == :edge
+			for jH = 1:d_b
+				b = fflow.b[jH]
+				sfhg = taylor_coeff(fhg, b, 1)
+				sfhgs[iH, jH] = simplify(sfhg; expand=true)
+			end
+		else
+			for iTH=1:2
+				for jH=1:d_b
+					b = fflow.b[jH]
+					sfhg = taylor_coeff(fhg[iTH], b, 1)
+					sfhgs[iTH, iH, jH] = simplify(sfhg; expand=true)
+				end
+			end
+		end
+	end
+	simplify.(sfhgs; expand=true)
+end;
+
+# ╔═╡ cb54e7d8-81f9-4ccd-b04b-33e8c0c5642d
+let
+	sgu = sfhgs[:,1,1] ./ (im * [k; l])
+	sgu = substitute.(sgu, Ref(Dict(a^2 => 4//3*h^2, a^4 => 16//9*h^4)))
+	simplify.(sgu; expand=true)
+end
+
+# ╔═╡ e7e6c299-c6be-4a7c-8e55-70c3061332e8
+sfhns = let
+	colpt_t   = colpt_type(flow_t, :u⃗)
+	d         = dims(colpt_t)
+	colpt_t_b = colpt_type(flow_t, :b)
+	d_b       = dims(colpt_t_b)
+	sfhns = if colpt_t == :edge
+		zeros(Complex{Symbolics.Num}, d_b, d)
+	else
+		zeros(Complex{Symbolics.Num}, d_b, 2, d)
+	end
+	for iH=1:d_b
+		fhn = let
+			fhn = expand.(fhns[iH])
+			fhn = if doapproxg # rewrite trig-functions by Taylor polynomial
+				fhn = simplify.(fhn; rewriter=rtrig) .|> expand
+			else
+				fhn = substitute.(fhn, Ref(Dict(l => h/a * 2/sqrt3 * l)))
+			end
+			fhn = substitute.(fhn, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M²))) .|> expand
+			fhn = substitute.(fhn, Ref(sqrt3_subs)) .|> expand
+			substitute.(fhn, Ref(Dict(sqrt3 => 2*h/a)))
+		end
+		if colpt_t == :edge
+			for jH = 1:d
+				u = fflow.u⃗[jH]
+				sfhn = taylor_coeff(fhn, u, 1)
+				sfhns[iH, jH] = simplify(sfhn; expand=true)
+			end
+		else
+			for jTH=1:2
+				for jH=1:d
+					u = fflow.u⃗[jTH, jH]
+					sfhn = taylor_coeff(fhn, u, 1)
+					sfhns[iH, jTH, jH] = simplify(sfhn; expand=true)
+				end
+			end
+		end
+	end
+	simplify.(sfhns; expand=true)
+end;
+
+# ╔═╡ fb0cbfc6-a1b2-4ed3-b974-a184da507540
+sfhns[1,1,:]
 
 # ╔═╡ 7b864ab1-b61c-481c-849a-9824c9abc984
 rpyt = let
@@ -993,140 +1310,6 @@ let
 	f
 end
 
-# ╔═╡ 5d83c523-626f-4b06-85ee-8b71423d398a
-# ╠═╡ disabled = true
-#=╠═╡
-if doapproxs
-	svus = compute_symbolic_eigenvals(Symbolics.wrap.(T[1]))
-	svus = Symbolics.simplify.(svus; expand=true)
-else
-	"Computation of symbolic eigenvalues not implemented in this case."
-end
-  ╠═╡ =#
-
-# ╔═╡ 9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
-#=╠═╡
-let
-	K̃s, ωs = let
-		K̃s = range(1e-20, π, 100) #floatmin(Float64)
-		ωs = []
-		if doapproxs
-			for svu in svus
-				svu    = substitute(svu, Dict(
-					θU    => 0, 
-					h     => K̃ / K, 
-					a     => K̃ / K * 2 / √3, 
-					sqrt3 => √3))
-				svu    = simplify(svu; expand=true)
-				vfunc = Symbolics.build_function(svu, K̃; expression=Val(false))
-				push!(ωs, vfunc.(K̃s))
-			end
-		else
-			A = substitute.(T[1], Ref(Dict(
-				θU => 1e-30, 
-				h => K̃ / K, 
-				a => K̃ / K * 2 / √3, 
-				sqrt3 => √3
-			)))
-			A = simplify.(A; expand=true)
-			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
-			for k̃ in K̃s
-				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
-				push!(ωs, values)
-			end
-		end
-		(K̃s, ωs)
-	end
-	f = Figure(; fontsize=36)
-	ax = Axis(f[1,1];
-			 xlabel = "wavenumber / h⁻¹",
-			 ylabel = L"ω / -\mathrm{M²}\sin(θU)",
-			 limits = (0, π, 0, 2), 
-			 aspect = 1,
-			 )
-	if doapproxs
-		for ω in ωs
-			lines!(ax, K̃s, real.(ω), linewidth=3)
-		end
-	else
-		for (k̃, ω) in zip(K̃s, ωs)
-			for _ω in ω
-				scatter!(ax, k̃, real(_ω); color=:blue)
-			end
-		end
-	end
-	#axislegend()
-	f
-end
-  ╠═╡ =#
-
-# ╔═╡ 30620b89-ced4-4353-bf3f-6d9c58794aa4
-# ╠═╡ disabled = true
-#=╠═╡
-if doapproxs
-	svvs = compute_symbolic_eigenvals(Symbolics.wrap.(T[2]))
-	svvs = Symbolics.simplify.(svvs; expand=true)
-else
-	"Computation of symbolic eigenvalues not implemented in this case."
-end
-  ╠═╡ =#
-
-# ╔═╡ 5361ebe0-a415-416c-b57f-051b0e6382f6
-#=╠═╡
-let
-	K̃s, ωs = let
-		K̃s = range(1e-20, π, 100) #floatmin(Float64)
-		ωs = []
-		if doapproxs
-			for svv in svvs
-				svv = substitute(svv, Dict(
-					θU    => 0, 
-					h     => K̃ / K, 
-					a     => K̃ / K * 2 / √3, 
-					sqrt3 => √3))
-				svv   = simplify(svv; expand=true)
-				vfunc = Symbolics.build_function(svv, K̃; expression=Val(false))
-				push!(ωs, vfunc.(K̃s))
-			end
-		else
-			A = substitute.(T[2], Ref(Dict(
-				θU => 0, 
-				h => K̃ / K, 
-				a => K̃ / K * 2 / √3, 
-				sqrt3 => √3
-			)))
-			A = simplify.(A; expand=true)
-			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
-			for k̃ in K̃s
-				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
-				push!(ωs, values)
-			end
-		end
-		(K̃s, ωs)
-	end
-	f = Figure(; fontsize=36)
-	ax = Axis(f[1,1];
-			 xlabel = "wavenumber / h⁻¹",
-			 ylabel = L"ω / \mathrm{M²}\cos(θU)",
-			 limits = (0, π, 0, 2), 
-			 aspect = 1,
-			 )
-	if doapproxs
-		for ω in ωs
-			lines!(ax, K̃s, real.(ω), linewidth=3)
-		end
-	else
-		for (k̃, ω) in zip(K̃s, ωs)
-			for _ω in ω
-				scatter!(ax, k̃, real(_ω); color=:blue)
-			end
-		end
-	end
-	#axislegend()
-	f
-end
-  ╠═╡ =#
-
 # ╔═╡ dcbd2629-eb5d-42b5-9234-d132106f5747
 if doapproxs
 	sevs = compute_symbolic_eigenvals(Symbolics.wrap.(Fhd*K̃^2))
@@ -1198,6 +1381,19 @@ end
 # ╠═27dbf7f2-14db-40ac-9e59-d2cfb3864a8e
 # ╠═04d312fc-e353-4660-82ad-3dd048d79551
 # ╠═dcbd2629-eb5d-42b5-9234-d132106f5747
+# ╟─3bf9a733-0328-460e-9988-114f95e24bb6
+# ╠═5ce14648-6fc3-4efe-b73d-755afe57eddc
+# ╠═8699ac4d-363d-4502-8353-5598e3e71591
+# ╠═49c1fe6e-725f-4de1-922e-9d091d5b70e7
+# ╟─986a7932-d8aa-4478-a631-2b028cbf1ed5
+# ╠═5401495e-95d7-4a67-b567-c812ff2daed5
+# ╠═cb54e7d8-81f9-4ccd-b04b-33e8c0c5642d
+# ╟─ed499209-af9f-4539-bcb1-c47d93912208
+# ╠═5248fb8c-c5b7-4b60-a09e-30f7de30dc3d
+# ╠═9b9d9dc3-978a-42b0-a8e3-e934b27623ea
+# ╠═d04861c4-b170-49d4-84db-7a59bc5bafc4
+# ╠═e7e6c299-c6be-4a7c-8e55-70c3061332e8
+# ╠═fb0cbfc6-a1b2-4ed3-b974-a184da507540
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 # ╟─8eea87eb-048e-4436-9d20-3bcc9e76c7b7
 # ╟─f0f8c55d-82fa-4cf4-9678-555c1222e615
