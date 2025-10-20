@@ -178,6 +178,34 @@ md"""
 #### Eigenvalues of Fourier Symbols
 """
 
+# ╔═╡ 5708950e-80fb-4296-adfa-e2db01284d06
+df = []
+
+# ╔═╡ 57b612b5-afb6-44db-ad3f-6c9882afae14
+let
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = "wavenumber / h⁻¹",
+			 ylabel = L"ω / i\bar{U}K",
+			 limits = (0, π, -2.1, 1.1), 
+			 aspect = 1,
+			 )
+	colors = [:red, :green, :black, :blue]
+	linestyles = [:solid, :solid, :dash, :solid]
+	for (ischeme, (scheme, (K̃s, ωs))) in enumerate(df)
+		linestyle = linestyles[ischeme]
+		color = colors[ischeme]
+		ωs = stack(ωs)
+		ωs = sort(ωs, dims=1, by=imag)
+		for i = 1:size(ωs, 1)
+			lines!(ax, K̃s, imag.(ωs[i,:]); color, linestyle, label=String(scheme), linewidth=3)
+		end
+	end
+	#axislegend(; merge=true)
+	Legend(f[1,2], ax; merge=true)
+	f
+end
+
 # ╔═╡ 990c73d7-0d2a-457c-81c7-88a1f80cb44a
 md"""
 ## Horizontal Scalar Transport
@@ -402,6 +430,16 @@ md"""
 ## Divergence Operator
 """
 
+# ╔═╡ 86daa502-9fb5-414a-9ea3-7294316abce1
+md"""
+## Vector Gradient Operator
+"""
+
+# ╔═╡ 7e1d7619-67ea-49bf-830f-2e63f224960d
+md"""
+Small wavenumber approximation: $(@bind doapproxv CheckBox(default=true))
+"""
+
 # ╔═╡ 7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 html"""<hr>"""
 
@@ -589,6 +627,24 @@ lhns = [
 	expand(taylor_coeff(expand(hn), ϵ, 1)) for hn in hns
 ];
 
+# ╔═╡ 21a6d07b-3ab4-46bc-b016-9d155e32fb0c
+begin
+	hvs = []
+	for iH=1:dims(colpt_type(flow_t, :u⃗))
+		cp = colpts[colpt_type(flow_t, :u⃗)]
+		pu⃗ = colpt_type(flow_t, :u⃗) == :edge ? ϵ*dflow.u⃗[cp[1], cp[2], cp[3]] : [ϵ*dflow.u⃗[iTH, cp[1], cp[2], cp[3]] for iTH=1:2]
+		∇ = TriB.∇cc
+		push!(hvs, ∇(colptidx(0,0,iH,Val(colpt_type(flow_t, :u⃗))), cp, pu⃗))
+	end
+end;
+
+# ╔═╡ 1932073b-e14c-40c3-bedc-706daf39e44c
+lhvs = if colpt_type(flow_t, :u⃗) == :edge
+	[expand(taylor_coeff(hvs[iH], ϵ, 1)) for iH=1:dims(colpt_type(flow_t, :u⃗))]
+else
+	[[expand(taylor_coeff(hvs[iH][iTH, jTH], ϵ, 1)) for iTH=1:2, jTH=1:2] for iH=1:dims(colpt_type(flow_t, :u⃗))]
+end;
+
 # ╔═╡ 3782fb16-26b7-4edd-8591-ef119b1cabef
 getflowft(grid_t) =
 	if grid_t == :TriA
@@ -642,6 +698,20 @@ end;
 fhns = [
 	fourier_transform_expression(biH, colpt_type(flow_t, :b), lhns[biH]; fflow, dflow, ϕ) for biH=1:dims(colpt_type(flow_t, :b))
 ];
+
+# ╔═╡ 8f8edfc5-c8a0-4fcc-a58b-d94e585082aa
+begin
+	fhvs = []
+	for iH=1:dims(colpt_type(flow_t, :u⃗))
+		if colpt_type(flow_t, :u⃗) == :edge
+			fhv = fourier_transform_expression(iH, colpt_type(flow_t, :u⃗), lhvs[iH]; fflow, dflow, ϕ)
+			push!(fhvs, fhv)
+		else
+			fhv = [fourier_transform_expression(iH, colpt_type(flow_t, :u⃗), lhvs[iH][iTH, jTH]; fflow, dflow, ϕ) for iTH=1:2, jTH=1:2]
+			push!(fhvs, fhv)
+		end
+	end		
+end;
 
 # ╔═╡ d424025e-3efd-4c4b-8d97-7369ff3618da
 function gethmt(grid_t, hmt_scheme)
@@ -836,7 +906,7 @@ begin
 	Fn = let
 		F = if colpt_type(flow_t, :u⃗) == :edge
 			sfhmts ./ Ū
-		elseif grid_t == :TriB && hmt_scheme == :avi
+		elseif grid_t == :TriB && (hmt_scheme == :avi || hmt_scheme == :fdv)
 			reshape(sfhmts ./ Ū, 4, 4)
 		else	
 			sfhmts[:,1,:,1] ./ Ū
@@ -850,8 +920,16 @@ begin
 			F = expand(F)
 			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
+		substitute.(F, Ref(Dict(
+			sin(θU)^2=>1-cos(θU)^2, 
+			sin(θU)^3=>sin(θU)*(1-cos(θU)^2),
+			sin(θU)^4=>(1-cos(θU)^2)^2,
+			sin(θU)^5=>sin(θU)*(1-cos(θU)^2)^2, 
+			sin(θU)^6=>(1-cos(θU)^2)^3
+		)))
 	end
 	Fn = simplify.(Fn ./ K; expand=true)
+	#Fn = simplify.(Fn; expand=true)
 end
 
 # ╔═╡ 78fa487a-5bdf-4aa3-b9c5-25d856697fae
@@ -904,7 +982,7 @@ begin
 	@variables K̃
 	Fb = let
 		F = sfbs./ Ū
-		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
 			F .= substitute.(F, Ref(Dict(
@@ -922,14 +1000,15 @@ begin
 			F .= substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
 	end
-	Fb .= simplify.(Fb ./ K; expand=true)
+	Fb .= simplify.(Fb; expand=true)
 end
 
 # ╔═╡ 7509a8b9-468b-4b2b-8a8c-175b3f045c4b
 begin
+	@variables Axx Axy Ayx Ayy
 	T = let
 		F = sfus ./ M²
-		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h))) .|> expand
 			F .= substitute.(F, Ref(Dict(
@@ -943,18 +1022,21 @@ begin
 			F .= simplify.(F; expand=true)
 			F .= substitute.(F, Ref(sqrt3_subs))
 		else
-			F .= expand.(F)
-			F .= substitute.(F, Ref(Dict(sqrt3=> 2 * h/a)))
+			F .= simplify.(F; expand=true)
 		end
 	end
-	T = if colpt_type(Val(grid_t), :u⃗) ≠ :edge
-		simplify.(T ./ reshape([-sin(θU); cos(θU)], 1, 1, 2); expand=true)
-		#(simplify.(T[:,:,1] ./ -sin(θU); expand=true), simplify.(T[:,:,2] ./ cos(θU); expand=true))
-	else
-		T
-	end
 	if colpt_type(Val(grid_t), :u⃗) ≠ :edge
-		(T[:,:,1], T[:,:,2])
+		#simplify.(T ./ reshape([-sin(θU); cos(θU)], 1, 1, 2); expand=true)
+		#(simplify.(T[:,:,1] ./ -sin(θU); expand=true), simplify.(T[:,:,2] ./ cos(θU); expand=true))
+		_Axx = taylor_coeff.(-T[:,:,1], sin(θU), 1)
+		_Axy = taylor_coeff.(T[:,:,1], cos(θU), 1)
+		_Ayx = taylor_coeff.(-T[:,:,2], sin(θU), 1)
+		_Ayy = taylor_coeff.(T[:,:,2], cos(θU), 1)
+		@assert isequal(T[:,:,1], expand.(-sin(θU) * _Axx + cos(θU) * _Axy))
+		@assert isequal(T[:,:,2], expand.(-sin(θU) * _Axy + cos(θU) * _Ayy))
+		@assert isequal(_Axy, _Ayx)
+		
+		(-sin(θU) * M² * Axx + cos(θU) * M² * Axy, -sin(θU) * M² * Axy + cos(θU) * M² * Ayy, _Axx, _Axy, _Ayx, _Ayy)
 	else
 		T
 	end
@@ -1001,8 +1083,11 @@ begin
 			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
 	end
-	@show Fhd = simplify.(Fhd ./ -K^2; expand=true)
+	Fhd = simplify.(Fhd ./ -K^2; expand=true)
 end
+
+# ╔═╡ f6ca4f11-9268-4525-bce2-588c7fae846b
+simplify.(Fb + im//6*Fhd * K̃^2; expand=true)
 
 # ╔═╡ 5401495e-95d7-4a67-b567-c812ff2daed5
 sfhgs = let
@@ -1049,10 +1134,13 @@ end;
 
 # ╔═╡ cb54e7d8-81f9-4ccd-b04b-33e8c0c5642d
 let
-	sgu = sfhgs[:,1,1] ./ (im * [k; l])
+	sgu = sfhgs[:,1,1] #./ (im * [k; l])
 	sgu = substitute.(sgu, Ref(Dict(a^2 => 4//3*h^2, a^4 => 16//9*h^4)))
 	simplify.(sgu; expand=true)
 end
+
+# ╔═╡ cf8ee985-7fb5-489a-ae96-b475a4740ae4
+sfhgs[1,:,1]
 
 # ╔═╡ e7e6c299-c6be-4a7c-8e55-70c3061332e8
 sfhns = let
@@ -1098,6 +1186,63 @@ end;
 
 # ╔═╡ fb0cbfc6-a1b2-4ed3-b974-a184da507540
 sfhns[1,1,:]
+
+# ╔═╡ 2476af78-0079-4b3e-bdb4-5e58874d8380
+isequal(sfhns[1,2,2], simplify(1//2*sfhgs[2,1,1]; expand=true))
+
+# ╔═╡ f47ab6b0-e15d-49b8-b731-17dd973e4f63
+sfhns[1,2,2], simplify(1//2*sfhgs[2,1,1]; expand=true)
+
+# ╔═╡ 48926455-a6de-4351-a6d9-9b0074af0028
+sfhvs = let
+	colpt_t = colpt_type(flow_t, :u⃗)
+	d       = dims(colpt_t)
+	sfhvs = if colpt_t == :edge
+		zeros(Complex{Symbolics.Num}, d, d)
+	else
+		zeros(Complex{Symbolics.Num}, d, 2, 2, d, 2)
+	end
+	for iH=1:d
+		fhv = let
+			fhv = expand.(fhvs[iH])
+			fhv = if doapproxv # rewrite trig-functions by Taylor polynomial
+				simplify.(fhv; rewriter=rtrig) .|> expand
+			else
+				substitute.(fhv, Ref(Dict(l => h/a * 2/sqrt3 * l)))
+			end
+			fhv = substitute.(fhv, Ref(Dict(le=>a, √(f₀^2*N²/Ri) => M²))) .|> expand
+			fhv = substitute.(fhv, Ref(sqrt3_subs)) .|> expand
+			substitute.(fhv, Ref(Dict(sqrt3 => 2*h/a)))
+		end
+		if colpt_t == :edge
+			for jH = 1:d
+				u = fflow.u⃗[jH]
+				sfhv = taylor_coeff(fhmt, u, 1)
+				sfhvs[iH, jH] = simplify(sfhv; expand=true)
+			end
+		else
+			for iTH=1:2
+				for ijTH=1:2
+					for jH=1:d
+						for jTH=1:2
+							u = fflow.u⃗[jTH, jH]
+							sfhv = taylor_coeff(fhv[iTH, ijTH], u, 1)
+							sfhvs[iH, iTH, ijTH, jH, jTH] = simplify(sfhv; expand=true)
+						end
+					end
+				end
+			end
+		end
+	end
+	sfhvs
+end;
+
+# ╔═╡ 84678921-87f9-4e3e-b571-25ebcf7ee6cc
+let
+	sv = sfhvs[:,2, 1,:,1]
+	sv = substitute.(sv, Ref(Dict(a^2 => 4//3*h^2, a^4 => 16//9*h^4)))
+	simplify.(sv; expand=true)
+end
 
 # ╔═╡ 7b864ab1-b61c-481c-849a-9824c9abc984
 rpyt = let
@@ -1212,9 +1357,17 @@ K̃s, ωs = let
 			θU => 0, 
 			h => K̃ / K, 
 			a => K̃ / K * 2 / √3, 
-			sqrt3 => √3
+			sqrt3 => √3,
+			f₀ => -1e-4,
+			g  => 1e9,
+			N² => 1e-6,
+			Ri => 1,
+			M² => √((-1e-4)^2*1e-6/1),
+			z  => 0,
+			β  => 0
 		)))
 		A = simplify.(A; expand=true)
+		A = substitute.(A, Ref(Dict(K => 1)))
 		Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
 		for k̃ in K̃s
 			(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
@@ -1224,13 +1377,19 @@ K̃s, ωs = let
 	(K̃s, ωs)
 end;
 
+# ╔═╡ 4ffe2716-9a66-4ca5-bf4b-367e85399a5b
+# ╠═╡ disabled = true
+#=╠═╡
+push!(df, hmt_scheme => (K̃s, ωs))
+  ╠═╡ =#
+
 # ╔═╡ 54131367-66b2-4bc7-8820-0b6a5fc19ae3
 let
 	f = Figure(; fontsize=36)
 	ax = Axis(f[1,1];
 			 xlabel = "wavenumber / h⁻¹",
 			 ylabel = L"ω / i\bar{U}K",
-			 limits = (0, π, -1, 1.1), 
+			 limits = (0, π, -2, 1.1), 
 			 aspect = 1,
 			 )
 	if doapprox
@@ -1351,7 +1510,10 @@ end
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
 # ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
 # ╠═f1feff04-e468-4909-af4c-9bc5a032f407
-# ╟─54131367-66b2-4bc7-8820-0b6a5fc19ae3
+# ╠═5708950e-80fb-4296-adfa-e2db01284d06
+# ╠═4ffe2716-9a66-4ca5-bf4b-367e85399a5b
+# ╠═54131367-66b2-4bc7-8820-0b6a5fc19ae3
+# ╠═57b612b5-afb6-44db-ad3f-6c9882afae14
 # ╟─990c73d7-0d2a-457c-81c7-88a1f80cb44a
 # ╟─27ec48bb-d7bb-4b70-9932-08f0e0926504
 # ╟─e9dd8811-c91e-45e4-8ced-afd7391f248a
@@ -1365,6 +1527,7 @@ end
 # ╠═78fa487a-5bdf-4aa3-b9c5-25d856697fae
 # ╟─ed799518-6bf1-4180-8206-0a3b6e51aed0
 # ╠═70137bf3-0f04-4863-ad91-2087ae3f1d3f
+# ╠═f6ca4f11-9268-4525-bce2-588c7fae846b
 # ╟─05fb2f19-1b43-4e7a-84c5-1ea8a71b9284
 # ╠═7509a8b9-468b-4b2b-8a8c-175b3f045c4b
 # ╟─26fd8b72-c736-43db-9d32-f76cbe5dd901
@@ -1394,6 +1557,16 @@ end
 # ╠═d04861c4-b170-49d4-84db-7a59bc5bafc4
 # ╠═e7e6c299-c6be-4a7c-8e55-70c3061332e8
 # ╠═fb0cbfc6-a1b2-4ed3-b974-a184da507540
+# ╠═2476af78-0079-4b3e-bdb4-5e58874d8380
+# ╠═f47ab6b0-e15d-49b8-b731-17dd973e4f63
+# ╟─86daa502-9fb5-414a-9ea3-7294316abce1
+# ╠═21a6d07b-3ab4-46bc-b016-9d155e32fb0c
+# ╠═1932073b-e14c-40c3-bedc-706daf39e44c
+# ╠═8f8edfc5-c8a0-4fcc-a58b-d94e585082aa
+# ╟─7e1d7619-67ea-49bf-830f-2e63f224960d
+# ╠═48926455-a6de-4351-a6d9-9b0074af0028
+# ╠═84678921-87f9-4e3e-b571-25ebcf7ee6cc
+# ╠═cf8ee985-7fb5-489a-ae96-b475a4740ae4
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 # ╟─8eea87eb-048e-4436-9d20-3bcc9e76c7b7
 # ╟─f0f8c55d-82fa-4cf4-9678-555c1222e615
