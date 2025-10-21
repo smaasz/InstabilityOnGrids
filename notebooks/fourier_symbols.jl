@@ -173,6 +173,43 @@ md"""
 Small wavenumber approximation: $(@bind doapprox CheckBox(default=true))
 """
 
+# ╔═╡ 9a35e1dc-7eb0-49d8-bcc8-720802fdea83
+trigwriter = let
+	function p(a)
+		ta = Symbolics.terms(a)
+		fa = Symbolics.factors.(ta[1])[1]
+		fa = Symbolics.unwrap(fa)
+		isreal(fa) && (fa < 0)
+	end
+	r1 = Symbolics.@rule cos(~x::p) => cos(-1 * ~x)
+	r2 = Symbolics.@rule sin(~x::p) => -sin(-1 * ~x)
+	SymbolicUtils.Prewalk(SymbolicUtils.Chain([r1, r2]))
+end
+
+# ╔═╡ 0eb891bb-504e-45a4-96ba-0618b5b069d9
+let
+	a = -k * h + l * h
+	ta = Symbolics.terms(a)
+	Symbolics.factors.(ta[1])[1] == -1
+end
+
+# ╔═╡ bc020f4e-ad0c-47e3-b14b-5b3e5260f286
+Gs = []
+
+# ╔═╡ 1a79ecd9-5dbf-4811-8858-a38943a019f6
+let
+	A = Symbolics.wrap(1) * simplify.(Gs[2][2] .- Gs[3][2]; expand=true, rewriter=trigwriter)
+	A = substitute.(A, Ref(Dict(a^2 => 4//3*h^2)))
+	simplify.(A, expand=true)
+end
+
+# ╔═╡ d4e73efc-770c-4872-ab18-40b9c0c40b1f
+let
+	A = simplify.(Symbolics.wrap(1) * Gs[4][2]; expand=true, rewriter=trigwriter)
+	A = substitute.(A, Ref(Dict(a^2 => 4//3*h^2)))
+	simplify.(A, expand=true)
+end
+
 # ╔═╡ 46afe77d-f904-40e9-92bb-cab83aeea51e
 md"""
 #### Eigenvalues of Fourier Symbols
@@ -180,6 +217,12 @@ md"""
 
 # ╔═╡ 5708950e-80fb-4296-adfa-e2db01284d06
 df = []
+
+# ╔═╡ 4ffe2716-9a66-4ca5-bf4b-367e85399a5b
+# ╠═╡ disabled = true
+#=╠═╡
+push!(df, hmt_scheme => (K̃s, ωs))
+  ╠═╡ =#
 
 # ╔═╡ 57b612b5-afb6-44db-ad3f-6c9882afae14
 let
@@ -297,6 +340,34 @@ else
 	"Computation of symbolic eigenvalues not implemented in this case."
 end
   ╠═╡ =#
+
+# ╔═╡ 932e3e09-c15f-4b0e-944a-1eecbcf378d7
+dfs = []
+
+# ╔═╡ 0e90c7a9-fc7e-4890-b6e0-32ca12e8ae7d
+let
+	f = Figure(; fontsize=36)
+	ax = Axis(f[1,1];
+			 xlabel = L"\text{wavenumber}~K / h^{-1}",
+			 ylabel = L"ω / i\bar{U}K",
+			 limits = (0, π, -0.1, 1.1), 
+			 aspect = 1,
+			 )
+	colors = [:red, :green, :black, :blue]
+	linestyles = [:solid, :solid, :dash, :solid]
+	for (ischeme, (scheme, (K̃s, ωs))) in enumerate(dfs)
+		linestyle = linestyles[ischeme]
+		color = colors[ischeme]
+		ωs = stack(ωs)
+		ωs = sort(ωs, dims=1, by=imag)
+		for i = 1:size(ωs, 1)
+			lines!(ax, K̃s, imag.(ωs[i,:]); color, linestyle, label=scheme, linewidth=3)
+		end
+	end
+	#axislegend(; merge=true)
+	Legend(f[1,2], ax; merge=true)
+	f
+end
 
 # ╔═╡ 9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
 #=╠═╡
@@ -911,7 +982,7 @@ begin
 		else	
 			sfhmts[:,1,:,1] ./ Ū
 		end
-		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapprox
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
 			F .= simplify.(F; expand=true)
@@ -928,9 +999,19 @@ begin
 			sin(θU)^6=>(1-cos(θU)^2)^3
 		)))
 	end
-	Fn = simplify.(Fn ./ K; expand=true)
-	#Fn = simplify.(Fn; expand=true)
+	#Fn = simplify.(Fn ./ K; expand=true)
+	Fn = simplify.(Fn; expand=true)
+	@variables gx gy U V
+	_gx = taylor_coeff.(Fn, cos(θU), 1)
+	_gy = taylor_coeff.(Fn, sin(θU), 1)
+	(gx * U .+ gy * V, U*_gx, U*_gy)
 end
+
+# ╔═╡ 0e2ee007-f695-408b-9a8f-3619b72c137f
+push!(Gs, (_gx, _gy))
+
+# ╔═╡ 48234252-8562-4303-bd9a-1e53d7b95a8f
+U * simplify.(Gs[1][1] .- Gs[4][1]; expand=true)
 
 # ╔═╡ 78fa487a-5bdf-4aa3-b9c5-25d856697fae
 begin
@@ -982,7 +1063,7 @@ begin
 	@variables K̃
 	Fb = let
 		F = sfbs./ Ū
-		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
 			F .= substitute.(F, Ref(Dict(
@@ -1012,7 +1093,7 @@ begin
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h))) .|> expand
 			F .= substitute.(F, Ref(Dict(
-				h=> K̃ / K, 
+				#h=> K̃ / K, 
 				sin(θU)^2=>1-cos(θU)^2, 
 				sin(θU)^3=>sin(θU)*(1-cos(θU)^2),
 				sin(θU)^4=>(1-cos(θU)^2)^2,
@@ -1032,11 +1113,16 @@ begin
 		_Axy = taylor_coeff.(T[:,:,1], cos(θU), 1)
 		_Ayx = taylor_coeff.(-T[:,:,2], sin(θU), 1)
 		_Ayy = taylor_coeff.(T[:,:,2], cos(θU), 1)
-		@assert isequal(T[:,:,1], expand.(-sin(θU) * _Axx + cos(θU) * _Axy))
-		@assert isequal(T[:,:,2], expand.(-sin(θU) * _Axy + cos(θU) * _Ayy))
-		@assert isequal(_Axy, _Ayx)
+		@assert isequal(expand.(T[:,:,1]), expand.(-sin(θU) * _Axx + cos(θU) * _Axy))
+		@assert isequal(expand.(T[:,:,2]), expand.(-sin(θU) * _Axy + cos(θU) * _Ayy))
+		@assert isequal(expand.(_Axy), expand.(_Ayx))
+		_Axx = simplify.(_Axx; expand=true)
+		_Axy = simplify.(_Axy; expand=true)
+		_Ayx = simplify.(_Ayx; expand=true)
+		_Ayy = simplify.(_Ayy; expand=true)
 		
-		(-sin(θU) * M² * Axx + cos(θU) * M² * Axy, -sin(θU) * M² * Axy + cos(θU) * M² * Ayy, _Axx, _Axy, _Ayx, _Ayy)
+		
+		(-sin(θU) * M² * Axx + cos(θU) * M² * Axy, -sin(θU) * M² * Ayx + cos(θU) * M² * Ayy, _Axx, _Axy, _Ayx, _Ayy)
 	else
 		T
 	end
@@ -1087,7 +1173,7 @@ begin
 end
 
 # ╔═╡ f6ca4f11-9268-4525-bce2-588c7fae846b
-simplify.(Fb + im//6*Fhd * K̃^2; expand=true)
+simplify.(Fb / K + im//6*Fhd * K̃^2; expand=true)
 
 # ╔═╡ 5401495e-95d7-4a67-b567-c812ff2daed5
 sfhgs = let
@@ -1329,14 +1415,18 @@ compute_symbolic_eigenvals = let
 end
 
 # ╔═╡ 16535b97-0c7e-4c14-9e71-604b0e0c9a3d
+# ╠═╡ disabled = true
+#=╠═╡
 if doapprox
 	svs = compute_symbolic_eigenvals(Symbolics.wrap.(Fn))
 	svs = Symbolics.simplify.(svs; expand=true)
 else
 	"Computation of symbolic eigenvalues not implemented in this case."
 end
+  ╠═╡ =#
 
 # ╔═╡ f1feff04-e468-4909-af4c-9bc5a032f407
+#=╠═╡
 K̃s, ωs = let
 	@variables K̃
 	K̃s = range(1e-20, π, 100) #floatmin(Float64)
@@ -1376,14 +1466,10 @@ K̃s, ωs = let
 	end
 	(K̃s, ωs)
 end;
-
-# ╔═╡ 4ffe2716-9a66-4ca5-bf4b-367e85399a5b
-# ╠═╡ disabled = true
-#=╠═╡
-push!(df, hmt_scheme => (K̃s, ωs))
   ╠═╡ =#
 
 # ╔═╡ 54131367-66b2-4bc7-8820-0b6a5fc19ae3
+#=╠═╡
 let
 	f = Figure(; fontsize=36)
 	ax = Axis(f[1,1];
@@ -1406,10 +1492,11 @@ let
 	#axislegend()
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 6dab1873-d738-4e41-9d16-0f83fb168bd4
 if doapproxs
-	svbs = compute_symbolic_eigenvals(Symbolics.wrap.(Fb))
+	svbs = compute_symbolic_eigenvals(Symbolics.wrap.(Fb / K))
 	svbs = Symbolics.simplify.(svbs; expand=true)
 else
 	"Computation of symbolic eigenvalues not implemented in this case."
@@ -1432,13 +1519,21 @@ let
 				push!(ωs, vfunc.(K̃s))
 			end
 		else
-			A = substitute.(Fb, Ref(Dict(
+			A = substitute.(Fb / K, Ref(Dict(
 				θU => 0, 
 				h => K̃ / K, 
 				a => K̃ / K * 2 / √3, 
-				sqrt3 => √3
+				sqrt3 => √3,
+				f₀ => -1e-4,
+				g  => 1e9,
+				N² => 1e-6,
+				Ri => 1,
+				M² => √((-1e-4)^2*1e-6/1),
+				z  => 0,
+				β  => 0
 			)))
 			A = simplify.(A; expand=true)
+			A = substitute.(A, Ref(Dict(K => 1)))
 			Afunc = Symbolics.build_function(A, K̃; expression=Val(false))[1]
 			for k̃ in K̃s
 				(; values) = eigen(Complex{Float64}.(Afunc(k̃)))
@@ -1507,12 +1602,19 @@ end
 # ╟─0f1cbe99-8b11-426d-8d28-77b6dffef277
 # ╠═192a4172-a2bb-416b-83df-194a090b093a
 # ╠═4c11881b-8b92-4f9e-807d-0d2685893c82
+# ╠═0e2ee007-f695-408b-9a8f-3619b72c137f
+# ╠═48234252-8562-4303-bd9a-1e53d7b95a8f
+# ╠═1a79ecd9-5dbf-4811-8858-a38943a019f6
+# ╠═d4e73efc-770c-4872-ab18-40b9c0c40b1f
+# ╠═9a35e1dc-7eb0-49d8-bcc8-720802fdea83
+# ╠═0eb891bb-504e-45a4-96ba-0618b5b069d9
+# ╠═bc020f4e-ad0c-47e3-b14b-5b3e5260f286
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
 # ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
 # ╠═f1feff04-e468-4909-af4c-9bc5a032f407
 # ╠═5708950e-80fb-4296-adfa-e2db01284d06
 # ╠═4ffe2716-9a66-4ca5-bf4b-367e85399a5b
-# ╠═54131367-66b2-4bc7-8820-0b6a5fc19ae3
+# ╟─54131367-66b2-4bc7-8820-0b6a5fc19ae3
 # ╠═57b612b5-afb6-44db-ad3f-6c9882afae14
 # ╟─990c73d7-0d2a-457c-81c7-88a1f80cb44a
 # ╟─27ec48bb-d7bb-4b70-9932-08f0e0926504
@@ -1534,7 +1636,9 @@ end
 # ╠═6dab1873-d738-4e41-9d16-0f83fb168bd4
 # ╟─5d83c523-626f-4b06-85ee-8b71423d398a
 # ╠═30620b89-ced4-4353-bf3f-6d9c58794aa4
-# ╠═6a120e6b-ced8-414a-a56b-3b49ea21c8fa
+# ╠═932e3e09-c15f-4b0e-944a-1eecbcf378d7
+# ╟─6a120e6b-ced8-414a-a56b-3b49ea21c8fa
+# ╠═0e90c7a9-fc7e-4890-b6e0-32ca12e8ae7d
 # ╟─9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
 # ╟─5361ebe0-a415-416c-b57f-051b0e6382f6
 # ╟─bc991b63-8e0e-4e37-9369-15f2e11e195e

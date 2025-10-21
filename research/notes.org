@@ -237,7 +237,8 @@ The transport of momentum may be either discretized in the flux form
 or the advective form. In both cases different discretizations have
 been proposed \cite{???}. Here the analysis is restricted to four
 different schemes. Figure \ref{...} shows the eigenvalues of the
-corresponding Fourier symbols.
+corresponding Fourier symbols evaluated at wavevectors in the
+along-front direction.
 
 [[../plots/hmt-FS.png]]
 
@@ -276,12 +277,33 @@ averaged across the respective edge $b_e = \sum_{v\in V(e)} b_v/2$.
 
 The Fourier symbol of the linearized advection operator may be
 expressed in terms of three contributions of different origin.
-\begin{enumerate}
-\item The vertical advection of mean buoyancy: $\mathrm{N}^2 \mathrm{Av}_z\Hat{w}$,
-\item the horizontal advection of mean buoyancy: , and
-\item the horizontal advection of mean buoyancy by the background flow:.
-\end{enumerate}
+**** The vertical advection of mean buoyancy:
+$\mathrm{N}^2 \mathrm{Av}_z\Hat{w}$,
+**** The horizontal advection of mean buoyancy:
+Due to the staggering of the horizontal velocity with respect to the
+buoyancy the horizontal velocity requires averaging in order to
+comptue the directional derivative of mean buoyancy along the velocity
+field. In fact, on a triangular grid it turns out that there are
+cross-interactions; i.e. the x-component of the horizontal velocity
+also advects the change of mean buoyancy in the y-direction and vice
+versa. In particular, in the Eady configuration also the along-front
+velocity contributes to the advection of mean buoyancy. As a result
+the Fourier symbol has the following form.
+\begin{equation}
+\begin{bmatrix}
+ - \mathtt{Axx} \mathtt{M{^2}} \sin\left( \mathtt{{\theta}U} \right) + \mathtt{Axy} \mathtt{M{^2}} \cos\left( \mathtt{{\theta}U} \right) &  - \mathtt{Ayx} \mathtt{M{^2}} \sin\left( \mathtt{{\theta}U} \right) + \mathtt{Ayy} \mathtt{M{^2}} \cos\left( \mathtt{{\theta}U} \right)
+\end{bmatrix}
+\end{equation}
+**** The horizontal advection of buoyancy by the background flow:
+The use of an higher-order accurate reconstruction scheme for the
+buoyancy yields an improved accuracy for the buoyancy's rate of change
+along the flow direction. Figure \ref{...} illustrates the difference
+in the Fourier symbols evaluated at wavevectors in the flow direction
+of the respective schemes. However, due to the staggering of
+horizontal velocity and buoyancy the Fourier symbol differs from the
+Fourier symbol in the advection of horizontal momentum ($Ug_x + Vg_y$).
 
+[[../plots/hstb-FS.png]]
 
 **** advective form
 On a Lorenz grid the advection of the horizontal velocity by the
@@ -303,8 +325,10 @@ change in velocity along a streamline.
 \Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
 = \Big(\boldsymbol{\Vec{u}}\cdot \big(\nabla \boldsymbol{u_i}\big)_c\Big)_c
 \end{equation*}
-Its linearization around a flow with constant velocities on horizontal
-planes is skew-hermitian but not diagonal
+The Fourier symbols of its linearization around a flow with constant
+velocities on horizontal planes is skew-hermitian but not diagonal. In
+particular, the addition of constant flow will yield a non-diagonal
+contribution to the system matrix.
 
 \begin{equation}
 \begin{bmatrix}
@@ -312,8 +336,14 @@ planes is skew-hermitian but not diagonal
 U g_x^u + V g_y^u & & & \\
 & & & U g_x^d + V g_y^d \\
 & & U g_x^u + V g_y^u &
-\end{bmatrix}.
+\end{bmatrix}
 \end{equation}
+More generally, write the Fourier symbol of the linearized advection
+operator acting on horizontal velocity may be written in the form
+$UG_x + VG_y$ where in this case the following relations hold.
+\begin{align*}
+G_a^{(xx)} = G_a^{(yy)} = \begin{bmatrix} 0 & g_a\\ g_a & 0 \end{bmatrix} & G_a^{(xy)} = G_a^{(yx)} = \boldsymbol{0} & a=x,y
+\end{align*}
 **** flux form
 The simplest discretization of the horizontal momentum flux through
 the horizontal faces on a Lorenz grid reconstructs the (transported)
@@ -346,14 +376,8 @@ cells.
 = \Big(\mathrm{Av}\big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i})_c\big)_v \Big)_c
 \end{equation*}
 
-\begin{equation}
-\left[
-\begin{array}{cc}
-\frac{ - 3 a \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} + \frac{ - 3 a \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 2 h \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 4 h \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} \mathit{i} & \frac{3 a \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 2 h \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{4}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} + \frac{3 a \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 2 h \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{4}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} \mathit{i} \\
-\frac{ - 3 a \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 2 h \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 4 h \cos\left(  - \frac{4}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 2 h \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} + \frac{3 a \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) + 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) + \frac{2}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) - 4 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - \frac{4}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - \frac{1}{3} K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} \mathit{i} & \frac{3 a \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \cos\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \cos\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} + \frac{ - 3 a \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) - 3 a \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 3 a \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \cos\left( \mathtt{{\theta}U} \right) + 4 h \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 2 h \sin\left(  - \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right) \sin\left( \mathtt{{\theta}U} \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left(  - K a \cos\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( K a \cos\left( \mathtt{{\theta}U} \right) \right) + 4 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) + K h \sin\left( \mathtt{{\theta}U} \right) \right) - 2 h \sin\left( \mathtt{{\theta}U} \right) \sin\left( \frac{1}{2} K a \cos\left( \mathtt{{\theta}U} \right) - K h \sin\left( \mathtt{{\theta}U} \right) \right)}{24 h^{2}} \mathit{i} \\
-\end{array}
-\right]
-\end{equation}
+$G_a^{(xy)} = G_a^{(yx)} = \boldsymbol{0}$ for both $a=x,y$ but the 
+
 
 ***** divergence on cells with vector reconstructions onto edges (FDCRE)
 At each edge of the cell the volume flux through that edge is
@@ -404,7 +428,74 @@ control volumes may be obtained my averaging the horizontal velocity.
 \Big(\big(\boldsymbol{\Vec{u}}\cdot \nabla\big)\boldsymbol{u_i} \Big)_{c}
 = \bigg( \mathrm{Av}\Big( \mathrm{Curl}\big( \boldsymbol{\Vec{u}} \big)_v \Big) \boldsymbol{\Vec{u}^\perp_i} \bigg)_c + \frac{1}{2}\Vec{e}_i\cdot\nabla\bigg( \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v \cdot \mathrm{Av}\big(\boldsymbol{\Vec{u}}\big)_v  \bigg)_c
 \end{equation*}
+In the Fourier symbol of the linearized operator the submatrices
+$G_a^{(xx)}$ and $G_a^{(yy)}$ are full for both $a=x,y$. In addition
+the cross-interaction submatrices $G_x^{(yx)}$ and $G_y^{(xy)}$ are
+non-zero and real.  Interestingly, the following relations between the Fourier
+symbols in the different schemes hold.
 
+\begin{align*}
+G_x^{(xx)}(\mathrm{AVI}) = G_x^{(xx)}(\mathrm{FDV}) + G_y^{(xy)}(\mathrm{AVI}) && G_x^{(yy)}(\mathrm{AVI}) = G_x^{(yy)}(\mathrm{FDV})\\
+G_y^{(yy)}(\mathrm{AVI}) = G_y^{(yy)}(\mathrm{FDV}) + G_x^{(yx)}(\mathrm{AVI}) && G_y^{(xx)}(\mathrm{AVI}) = G_y^{(xx)}(\mathrm{FDV})
+\end{align*}
+
+\begin{equation}
+G_x^{(xy)}(\mathrm{AVI}) = 
+\begin{bmatrix}
+\frac{\cos\left( \frac{1}{2} a k - h l \right) - \cos\left(\frac{1}{2} a k + h l \right)}{3 a} & 0\\
+0 & -\frac{\cos\left( \frac{1}{2} a k - h l \right) - \cos\left(\frac{1}{2} a k + h l \right)}{3 a}
+\end{bmatrix} =
+\begin{bmatrix}
+\frac{1}{3} k l h & 0\\
+0 & -\frac{1}{3} k l h
+\end{bmatrix} + \mathcal{O}\left(h^3\right)
+\end{equation}
+
+\begin{equation}
+G_y^{(yx)}(\mathrm{AVI}) = 
+\begin{bmatrix}
+\frac{\cos\left( \frac{1}{2} a k - h l \right) - 2 \cos\left(  - a k \right) + U \cos\left( \frac{1}{2} a k + h l \right) }{6 h} & 0\\
+0 & \frac{\cos\left( \frac{1}{2} a k - h l \right) - 2 \cos\left(  - a k \right) + U \cos\left( \frac{1}{2} a k + h l \right) }{6 h}
+\end{bmatrix} =
+\begin{bmatrix}
+\frac{1}{6} (k^2 -  l^2) h & 0\\
+0 & \frac{1}{6} (k^2 -  l^2) h
+\end{bmatrix} + \mathcal{O}\left(h^3\right)
+\end{equation}
+
+\begin{align*}
+G_x^{(xx)} = G_x^{(yy)} &=
+\left[
+\begin{array}{cc}
+\frac{ - \cos\left( \frac{1}{2} a k - h l \right) + \cos\left( \frac{1}{2} a k + h l \right)}{6 a} + \frac{\sin\left( \frac{1}{2} a k + h l \right) + 2 \sin\left( a k \right) + \sin\left( \frac{1}{2} a k - h l \right)}{6 a} \mathit{i} & \frac{\cos\left( \frac{1}{2} a k + \frac{1}{3} h l \right) + \cos\left( a k - \frac{2}{3} h l \right) - \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right) - \cos\left( a k + \frac{2}{3} h l \right)}{6 a} + \frac{\sin\left( a k - \frac{2}{3} h l \right) + \sin\left( a k + \frac{2}{3} h l \right) + \sin\left( \frac{1}{2} a k + \frac{1}{3} h l \right) + \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{6 a} \mathit{i} \\
+\frac{ - \cos\left( \frac{1}{2} a k + \frac{1}{3} h l \right) - \cos\left( a k - \frac{2}{3} h l \right) + \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right) + \cos\left( a k + \frac{2}{3} h l \right)}{6 a} + \frac{\sin\left( a k - \frac{2}{3} h l \right) + \sin\left( a k + \frac{2}{3} h l \right) + \sin\left( \frac{1}{2} a k + \frac{1}{3} h l \right) + \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{6 a} \mathit{i} & \frac{\cos\left( \frac{1}{2} a k - h l \right) - \cos\left( \frac{1}{2} a k + h l \right)}{6 a} + \frac{\sin\left( \frac{1}{2} a k + h l \right) + 2 \sin\left( a k \right) + \sin\left( \frac{1}{2} a k - h l \right)}{6 a} \mathit{i}
+\end{array}
+\right]\\
+&=
+\left[
+\begin{array}{cc}
+- \frac{1}{6} h k l + k \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}  &  \frac{1}{6} h k l + k \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}\\
+- \frac{1}{6} h k l + k \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i} &   \frac{1}{6} h k l + k \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}
+\end{array}
+\right] + \mathcal{O}\left( h^3 \right)
+\end{align*}
+
+\begin{align*}
+G_y^{(xx)} = G_y^{(yy)} &=
+\left[
+\begin{array}{cc}
+\frac{ - \cos\left( \frac{1}{2} a k - h l \right) - \cos\left( \frac{1}{2} a k + h l \right) + 2 \cos\left( a k \right)}{12 h} + \frac{\sin\left( \frac{1}{2} a k + h l \right) - \sin\left( \frac{1}{2} a k - h l \right)}{4 h} \mathit{i} & \frac{ - 2 \cos\left( \frac{2}{3} h l \right) + \cos\left( \frac{1}{2} a k + \frac{1}{3} h l \right) - \cos\left( a k - \frac{2}{3} h l \right) + 2 \cos\left( \frac{4}{3} h l \right) + \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right) - \cos\left( a k + \frac{2}{3} h l \right)}{12 h} + \frac{ - \sin\left( a k - \frac{2}{3} h l \right) + 2 \sin\left( \frac{4}{3} h l \right) + \sin\left( a k + \frac{2}{3} h l \right) + 2 \sin\left( \frac{2}{3} h l \right) + \sin\left( \frac{1}{2} a k + \frac{1}{3} h l \right) - \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{12 h} \mathit{i} \\
+\frac{2 \cos\left( \frac{2}{3} h l \right) - \cos\left( \frac{1}{2} a k + \frac{1}{3} h l \right) + \cos\left( a k - \frac{2}{3} h l \right) - 2 \cos\left( \frac{4}{3} h l \right) - \cos\left( \frac{1}{2} a k - \frac{1}{3} h l \right) + \cos\left( a k + \frac{2}{3} h l \right)}{12 h} + \frac{ - \sin\left( a k - \frac{2}{3} h l \right) + 2 \sin\left( \frac{4}{3} h l \right) + \sin\left( a k + \frac{2}{3} h l \right) + 2 \sin\left( \frac{2}{3} h l \right) + \sin\left( \frac{1}{2} a k + \frac{1}{3} h l \right) - \sin\left( \frac{1}{2} a k - \frac{1}{3} h l \right)}{12 h} \mathit{i} & \frac{\cos\left( \frac{1}{2} a k - h l \right) + \cos\left( \frac{1}{2} a k + h l \right) - 2 \cos\left( a k \right)}{12 h} + \frac{\sin\left( \frac{1}{2} a k + h l \right) - \sin\left( \frac{1}{2} a k - h l \right)}{4 h} \mathit{i}
+\end{array}
+\right]\\
+&=
+\left[
+\begin{array}{cc}
+- \frac{1}{12} \left(k^2 - l^2) h + l \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}  & \frac{1}{12} \left(k^2 - l^2) h + l \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i} \\
+- \frac{1}{12} \left(k^2 - l^2) h + l \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}  & \frac{1}{12} \left(k^2 - l^2) h + l \left( \frac{1}{2} - \frac{1}{12} \left( k^{2} + l^2 \right) h^{2} \right) \mathit{i}
+\end{array}
+\right] + \mathcal{O}\left( h^3 \right)
+\end{align*}
 
 *** geometry
 - cells: two lattices
@@ -1411,7 +1502,7 @@ imaginary, the Fourier symbol of divergence can be also written as $$
 \Dop=(g_x, g_y).  $$
 
 The Fourier symbol of the linearized operator of horizontal advection
-(transport) is obviously $$ \Top=g_xU+g_yV.  $$ The same operator acts
+(transport) is obviously $$ \mathrm{T}=g_xU+g_yV.  $$ The same operator acts
 on the both components of velocity and buoyancy on the A grid. This is
 not the case for staggered discretizations on triangular meshes. Note
 that $\Aop$ has the dimension of $N_z$. Three more terms originate
@@ -1448,18 +1539,18 @@ the limit of small wavenumbers.
 We combine all unknowns into a single vector
 $\hat{\mathbf{r}}=(\hat{u},\hat{v},\hat{b},\hat{\eta})^T$ with
 dimension of $3N_z+1$ and introduce several auxiliary matrices:
-$\mathrm{A}={\rm diag(\Top)}$, the column of ones
+$\mathrm{A}={\rm diag(\mathrm{T})}$, the column of ones
 $\mathbf{1}=(1,1,\ldots,1)^T$ of dimension $N_z$, and the diagonal
-matrix $\Dop_1={\rm diag}(\mathbf{1}}$. Using these matrices, the
+matrix $\mathrm{D}_1=\mathrm{diag}(\mathbf{1})$. Using these matrices, the
 system matrix of the linearized Eady problem is written as
 \begin{equation}     
-\Sop=-\begin{pmatrix} \mathrm{A} +(M^2/f_0)g_x\cos{\theta}\Wop & -f_0\Dop_1+(M^2/f_0)g_y\cos{\theta}\Wop & gx\Pop & gg_x\mathbf{1}\\
-    f_0\Dop_1 +(M^2/f_0)g_x\sin{\theta}\Wop& \mathrm{A} +(M^2/f_0)g_y\sin{\theta}\Wop$ gy\Pop & gg_y\mathbf{1}\\  
-    -N^2\Wop g_x +(\mathrm{A}_{xx}B_x+\mathrm{A}_{xy}B_y)\Dop_1 & -N^2\Wop g_y  +(\mathrm{A}_{xy}B_x+\mathrm{A}_{yy}B_y)\Dop_1  & \mathrm{A} & 0\mathbf{1}\\  
+\mathrm{S}=-\begin{pmatrix} \mathrm{A} +(M^2/f_0)g_x\cos{\theta}\mathrm{W} & -f_0\mathrm{D}_1+(M^2/f_0)g_y\cos{\theta}\mathrm{W} & g_x\mathrm{P} & gg_x\mathbf{1}\\
+    f_0\mathrm{D}_1 +(M^2/f_0)g_x\sin{\theta}\mathrm{W}& \mathrm{A} +(M^2/f_0)g_y\sin{\theta}\mathrm{W} & g_y\mathrm{P} & gg_y\mathbf{1}\\  
+    -N^2\mathrm{W} g_x +(\mathrm{A}_{xx}B_x+\mathrm{A}_{xy}B_y)\mathrm{D}_1 & -N^2\mathrm{W} g_y  +(\mathrm{A}_{xy}B_x+\mathrm{A}_{yy}B_y)\mathrm{D}_1  & \mathrm{A} & 0\mathbf{1}\\  
     g_x\Delta z\mathbf{1}^T & g_y\Delta z\mathbf{1}^T &0\mathbf{1}^T & \mathrm{A}(1,1) \end{pmatrix}.
     \label{eq:aS}
 \end{equation}
-The matrices $\Wop$ and $\Pop$ are introduced in
+The matrices $\mathrm{W}$ and $\mathrm{P}$ are introduced in
 \cite{Barham2018}. The first of them incorporates $A_z$ and returns
 the vertical velocity at mid-layer locations if applied to the vector
 of minus horizontal divergence. The second one returns the pressure at
@@ -1467,14 +1558,14 @@ mid-layer locations when acting on buoyancy.
 
 The A grid commonly requires dissipation. The Fourier symbol of scalar
 Laplacian is $$
-\Lop=\Dop\Gop=\frac{4}{3a^2}(\cos(ka)+cos(ka/2+lh)+cos(-ka/2+lh)-3),
+\Lop=\mathrm{D}\Gop=\frac{4}{3a^2}(\cos(ka)+cos(ka/2+lh)+cos(-ka/2+lh)-3),
 $$ and the vector Laplacian has the same Fourier symbol for the
 components of velocity. Biharmonic viscosity and diffusion is
-introduced by adding $\kappa \Lop^2$ to $\Top$ before the diagonal
-matrix $\Top$ is computed. Here, $\kappa$ is the coefficient of
+introduced by adding $\kappa \Lop^2$ to $\mathrm{T}$ before the diagonal
+matrix $\mathrm{T}$ is computed. Here, $\kappa$ is the coefficient of
 biharmonic dissipation. The advection operator as written is of the
 second order. It can be easily updated to the fourth order by the
-Laplacian correction $$ \Top \to \Top(1-\Lop a^2/6).  $$ This can be
+Laplacian correction $$ \mathrm{T} \to \Top(1-\Lop a^2/6).  $$ This can be
 seen doing Taylor's expansion of $g_x$ and $g_y$. The practical
 implementation of the fourth-order method can be done in several ways
 which are beyond the scope of present work.

@@ -354,7 +354,7 @@ bschemes = Dict(
 		[
 			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", 0) => "TriA.u⃗∇ᵀ(vout, vin, u⃗, b)",
 			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗ᵀ∇b)",
-			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b-_le^2/8*TriA.Δ(vin,vin,b))", 0) => "TriA.u⃗∇ᵀ_high(vout, vin, u⃗, b)",
+			("TriA.u⃗∇ᵀ(vout, vin, u⃗, b-le^2/8*TriA.Δ(vin,vin,b))", 0) => "TriA.u⃗∇ᵀ_high(vout, vin, u⃗, b)",
 			("evalat(vout, vin, ū⃗ᵀ∇b)+evalat(vout, vin, u⃗ᵀ∇b̄)", 0) => "evalat(vout, vin, ū⃗ᵀ∇b)+evalat(vout, vin, u⃗ᵀ∇b̄)"
 		],
 		[
@@ -373,7 +373,7 @@ bschemes = Dict(
 		],
 		[
 			("TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 0) => "TriB.u⃗∇ᵀ(vout, cin, vin, u⃗, b; γ=3//4)", 
-			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b-_le^2/8*TriB.Δ(vin, vin, b))", 0) => "TriB.u⃗∇ᵀ_high(vout, cin, vin, u⃗, b)",
+			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b-le^2/8*TriB.Δ(vin, vin, b))", 0) => "TriB.u⃗∇ᵀ_high(vout, cin, vin, u⃗, b)",
 		 	("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 0) => "TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 
 			("TriB.u⃗∇ᵀ_low(vout, cin, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗ᵀ∇b)"
 		],
@@ -394,7 +394,7 @@ bschemes = Dict(
 		],
 		[
 			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)", 0) => "TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)",
-			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, expand((1+_le^2*(k^2+l^2)/24)*b))", 0) => "TriC.u⃗∇ᵀ_high(cout, ein, cin, u⃗, b)",
+			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, expand((1+le^2*(k^2+l^2)/24)*b))", 0) => "TriC.u⃗∇ᵀ_high(cout, ein, cin, u⃗, b)",
 			("TriC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)", 1) => "evalat(cout, cin, u⃗∇ᵀb)"
 		],
 		[
@@ -413,7 +413,7 @@ bschemes = Dict(
 		],
 		[
 			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b)", 0) => "HexC.u⃗∇ᵀ(cout, ein, cin, u⃗, b)",
-			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b-_le^2/8*HexC.Δ(vin, vin, b))", 0) => "HexC.u⃗∇ᵀ_high(vout, ein, vin, u⃗, b)",
+			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b-le^2/8*HexC.Δ(vin, vin, b))", 0) => "HexC.u⃗∇ᵀ_high(vout, ein, vin, u⃗, b)",
 			("HexC.u⃗∇ᵀ(vout, ein, vin, u⃗, b)", 1) => "evalat(vout, vin, u⃗∇ᵀb)"
 		],
 		[
@@ -1401,7 +1401,7 @@ let
 			 )
 	lines!(ax, Ks./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t))", linewidth=3)
 	let
-		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈s𝕂ᵘ, :𝕂ᵇ=>x->x.≈s𝕂ᵇ, :Ri=>x->x.==sRi, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic))
+		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈s𝕂ᵘ, :𝕂ᵇ=>x->x.≈s𝕂ᵇ, :Ri=>x->x.==sRi, :grid_t=>x->Symbol.(x).==_grid_t, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic))
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t)): fully discr.", linewidth=4, linestyle=:dot, color=:black)
 	end
 	axislegend()
@@ -1591,7 +1591,7 @@ end
 # ╠═ab60e360-e826-496d-b382-e868f640d85c
 # ╠═a34aca42-98e0-429c-aba6-a2893e5ad983
 # ╟─e3bc1fcc-fb96-404f-8204-675174b3afe1
-# ╟─b15d7752-cf88-4e49-95c2-69935c08f448
+# ╠═b15d7752-cf88-4e49-95c2-69935c08f448
 # ╟─be945a73-9afb-4b9a-ac78-4514fbb0e33e
 # ╠═70f46342-4b5c-45ce-9bf9-13a44fd780fc
 # ╟─3adadede-5704-441f-9756-08f0f820c723
