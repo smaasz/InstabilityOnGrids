@@ -1,5 +1,5 @@
 #+STARTUP: content latexpreview
-#+LATEX_HEADER: \usepackage{mathtools} \usepackage{bm} \usepackage{tikz} \usetikzlibrary {shapes.geometric} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_v^c}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert}
+#+LATEX_HEADER: \usepackage{mathtools} \usepackage{bm} \usepackage{tikz} \usetikzlibrary {shapes.geometric} \DeclareMathOperator{\uhma}{Uhma_c^c}  \DeclareMathOperator{\vhma}{Vhma_c^c} \newcommand{\gradcc}{\Vec{\mathrm{Grad}}_\mathrm{c}^\mathrm{c}} \DeclareMathOperator{\gradcv}{Grad_v^c}\DeclareMathOperator{\avcv}{Av_v^c} \newcommand{\bsu}{\boldsymbol{u'}} \newcommand{\bsv}{\boldsymbol{v'}} \newcommand{\bsb}{\boldsymbol{b'}} \newcommand{\bsp}{\boldsymbol{p'}} \newcommand{\bseta}{\boldsymbol{\eta'}} \newcommand{\bsw}{\boldsymbol{w'}} \newcommand{\abs}[1]{\lvert #1\rvert} \DeclareMathOperator{\Gop}{\underline{G}} \DeclareMathOperator{\Wop}{\underline{W}} \DeclareMathOperator{\Pop}{\underline{P}} \DeclareMathOperator{\Aop}{\underline{A}} \DeclareMathOperator{\Gvop}{\underline{\cal G}} \DeclareMathOperator{\Dop}{\underline{D}}
 
 * Title
 Effects of horizontal discretization on triangular and hexagonal grids on linear baroclinic and symmetric instabilities
@@ -275,10 +275,15 @@ Here, the higher-order accurate scheme is contrasted with a
 lower-order accurate scheme where the buoyancy field is simply
 averaged across the respective edge $b_e = \sum_{v\in V(e)} b_v/2$.
 
-The Fourier symbol of the linearized advection operator may be
-expressed in terms of three contributions of different origin.
+The Fourier symbol of the linearized advection operator acting on the
+buoyancy may be expressed in terms of three contributions of different
+origin.
 **** The vertical advection of mean buoyancy:
-$\mathrm{N}^2 \mathrm{Av}_z\Hat{w}$,
+Since the vertical velocity and buoyancy are collocated at the
+vertices of the triangular grid, no additional averaging other than in
+vertical direction due to the Lorenz-type staggering is needed. The
+contribution to the Fourier symbol involves the Brunt-Väisälä
+frequency of background flow: $\mathrm{N}^2 \mathrm{Av}_z\Hat{w}$.
 **** The horizontal advection of mean buoyancy:
 Due to the staggering of the horizontal velocity with respect to the
 buoyancy the horizontal velocity requires averaging in order to
@@ -288,7 +293,7 @@ cross-interactions; i.e. the x-component of the horizontal velocity
 also advects the change of mean buoyancy in the y-direction and vice
 versa. In particular, in the Eady configuration also the along-front
 velocity contributes to the advection of mean buoyancy. As a result
-the Fourier symbol has the following form.
+the contribution to the Fourier symbol has the following form.
 \begin{equation}
 \begin{bmatrix}
  - \mathtt{Axx} \mathtt{M{^2}} \sin\left( \mathtt{{\theta}U} \right) + \mathtt{Axy} \mathtt{M{^2}} \cos\left( \mathtt{{\theta}U} \right) &  - \mathtt{Ayx} \mathtt{M{^2}} \sin\left( \mathtt{{\theta}U} \right) + \mathtt{Ayy} \mathtt{M{^2}} \cos\left( \mathtt{{\theta}U} \right)
@@ -368,7 +373,7 @@ cell must be specified.
 ***** divergence on scalar control volumes (FDV)
 For both horizontal directions their advective momentum flux may be
 computed on each cell. The divergence of the advective momentum flux
-must then be averaged from the scalar control volumes back to the
+must be averaged from the scalar control volumes back to the
 cells.
 #+NAME: hma-flux-form
 \begin{equation*}
@@ -376,8 +381,10 @@ cells.
 = \Big(\mathrm{Av}\big(\nabla\cdot \big(\boldsymbol{\Vec{u}} \boldsymbol{u_i})_c\big)_v \Big)_c
 \end{equation*}
 
-$G_a^{(xy)} = G_a^{(yx)} = \boldsymbol{0}$ for both $a=x,y$ but the 
-
+Analyzing the Fourier symbol of the linearized operator as above it
+should be noted that the off-diagonal submatrices vanish $G_a^{(xy)} =
+G_a^{(yx)} = \boldsymbol{0}$ for both $a=x,y$ but the diagonal
+submatrices are full.
 
 ***** divergence on cells with vector reconstructions onto edges (FDCRE)
 At each edge of the cell the volume flux through that edge is
@@ -394,6 +401,11 @@ Ru_i &= u_{i,\Tilde{c}} + \ell_{\Hat{e}}/2~\Vec{n}_{\Tilde{c},e} \cdot\big(\nabl
 &= \frac{1}{A_c}\sum_{e\in C(e)} \sum_{\Tilde{c}\in C(e)} \Vec{n}_{c,e}\cdot\Vec{n}_{\Tilde{c},e}\frac{F +  \abs{F}}{2}~Ru_i
 \end{align*}
 \end{subequations}
+In this case too the off-diagonal submatrices in the Fourier symbol of
+the linearized operator vanish but the diagonal submatrices are
+full. The physical branch of the eigenvalues is more accurate than for
+the other branches. There is, however, a spurious/geometric mode in
+the opposite direction of the advecting background flow (see Figure \ref{...}).
 
 ***** Reduction of flux to advective form
 Assume the following discretization of the flux form
@@ -496,6 +508,16 @@ G_y^{(xx)} = G_y^{(yy)} &=
 \end{array}
 \right] + \mathcal{O}\left( h^3 \right)
 \end{align*}
+
+
+\begin{equation}
+\begin{bmatrix}
+U\Gop_x^{(xx)} + V\Gop_y^{(xx)} + U_z\Aop_v^c \Wop^{(x)} & U\Gop_x^{(xy)} + V\Gop_y^{(xy)} + U_z\Aop_v^c \Wop^{(y)} - f_0 \mathrm{\underline{I}} & \underline{g}_x\Pop & g \mathrm{\underline{1}} g_x\\
+U\Gop_x^{(yx)} + V\Gop_y^{(yx)} + U_z\Aop_v^c \Wop^{(x)} + f_0 \mathrm{\underline{I}} & U\Gop_x^{(yy)} + V\Gop_y^{(yy)} + U_z\Aop_v^c \Wop^{(y)} & \underline{g}_x\Pop & g \mathrm{\underline{1}} g_x\\
+N^2 \Wop^{(x)} + B_x \Aop^{(xx)} + B_y \Aop^{(yx)} & N^2 \Wop^{(y)} + B_x \Aop^{(xy)} + B_y \Aop^{(yy)} & U \Gvop_x + V\Gvop_y & \underline{0}\\
+\Delta_z\underline{1}^T \Dop^{(x)} & \Delta_z\underline{1}^T \Dop^{(y)} & \underline{1}^T\underline{0} & 0
+\end{bmatrix}
+\end{equation}
 
 *** geometry
 - cells: two lattices
