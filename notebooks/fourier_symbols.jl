@@ -63,7 +63,33 @@ __Grid__: $(@bind grid_t Select([:TriA, :TriB, :TriC, :HexC]; default=:TriA))
 """
 
 # ╔═╡ cfb78fd5-4435-4c0d-8cf2-1b5fffc2f91e
-@variables f₀ g N² Ri le ϵ k l h a M² β θU
+@variables f₀ g N² Ri le ϵ k l h a M² β θU 𝕂ᵘ 𝕂ᵇ
+
+# ╔═╡ b94ae1e9-1a38-4c45-9adc-df1f472f944b
+begin
+	@variables α₁ α₂ α₃
+	_α₁ = a*k/2 + h*l/3
+	_α₂ = -a*k/2 + h*l/3
+	_α₃ = -2//3*h*l
+end;
+
+# ╔═╡ acd16e8d-1d5e-451b-b02f-af5ccfb28218
+phase_subs = let
+	αs = [(_α₁, α₁), (_α₂, α₂), (_α₃, α₃)]
+	cs = [(1,0), (2,0), (1,-1), (2,-1), (1//2, 0), (1//2, -1//2), (1, -1//2), (3//2, 0)]
+	subs = Dict()
+	for (c₁, c₂) in cs
+		for (_ϕ₁, ϕ₁) in αs
+			for (_ϕ₂, ϕ₂) in αs
+				t = simplify(c₁*_ϕ₁ + c₂*_ϕ₂; expand=true)
+				subs[t] = c₁*ϕ₁ + c₂*ϕ₂
+				t = simplify(-c₁*_ϕ₁ - c₂*_ϕ₂; expand=true)
+				subs[t] = -c₁*ϕ₁ - c₂*ϕ₂
+			end
+		end
+	end
+	subs
+end
 
 # ╔═╡ 428cc192-03d0-497c-aee7-f7015c4c09d5
 md"""
@@ -103,6 +129,11 @@ md"""
 #### Pertubation Flow
 
 The background flow is perturbed by another flow scaled by the asymptotic parameter $\epsilon$.
+"""
+
+# ╔═╡ da53d71b-e5b3-4ce0-8ce8-1a0449c4fd32
+md"""
+__Dissipation scheme__: $(@bind dissip_scheme Select([:biharmonic => "biharmonic", :harmonic => "harmonic"]))
 """
 
 # ╔═╡ 77eb6488-c26a-416a-839b-1e617f0cdd50
@@ -186,19 +217,12 @@ trigwriter = let
 	SymbolicUtils.Prewalk(SymbolicUtils.Chain([r1, r2]))
 end
 
-# ╔═╡ 0eb891bb-504e-45a4-96ba-0618b5b069d9
-let
-	a = -k * h + l * h
-	ta = Symbolics.terms(a)
-	Symbolics.factors.(ta[1])[1] == -1
-end
-
 # ╔═╡ bc020f4e-ad0c-47e3-b14b-5b3e5260f286
 Gs = []
 
 # ╔═╡ 1a79ecd9-5dbf-4811-8858-a38943a019f6
 let
-	A = Symbolics.wrap(1) * simplify.(Gs[2][2] .- Gs[3][2]; expand=true, rewriter=trigwriter)
+	A = Symbolics.wrap(1) * simplify.(Gs[2][1] .- Gs[3][1]; expand=true, rewriter=trigwriter)
 	A = substitute.(A, Ref(Dict(a^2 => 4//3*h^2)))
 	simplify.(A, expand=true)
 end
@@ -223,6 +247,11 @@ df = []
 #=╠═╡
 push!(df, hmt_scheme => (K̃s, ωs))
   ╠═╡ =#
+
+# ╔═╡ 0890ade4-59b2-45cf-a71d-35f918c71883
+md"""
+θU: $(@bind sθU PlutoUI.Slider([0.0, π/12, π/6]; show_value=true))
+"""
 
 # ╔═╡ 57b612b5-afb6-44db-ad3f-6c9882afae14
 let
@@ -314,6 +343,9 @@ md"""
 #### Advection of the background buoyancy by the velocity pertubation
 """
 
+# ╔═╡ cd073fd5-749e-4812-8e65-c6677722fcf3
+phase_subs
+
 # ╔═╡ 26fd8b72-c736-43db-9d32-f76cbe5dd901
 md"""
 #### Eigenvalues of Fourier Symbols
@@ -343,6 +375,11 @@ end
 
 # ╔═╡ 932e3e09-c15f-4b0e-944a-1eecbcf378d7
 dfs = []
+
+# ╔═╡ 23a4913d-3686-42a0-a2ce-c34b298fa59f
+md"""
+θU: $(@bind tθU PlutoUI.Slider([0.0, π/12, π/6]; show_value=true))
+"""
 
 # ╔═╡ 0e90c7a9-fc7e-4890-b6e0-32ca12e8ae7d
 let
@@ -637,6 +674,9 @@ begin
     dflow = flow_t{nS}(; u⃗ = du⃗, w = dw, ∫∇ᵀu⃗dz = ∫∇ᵀdu⃗dz, b = db, p = dp, η = dη)
 end;
 
+# ╔═╡ 26c59f64-ad09-4ac6-a3ad-63f6372550a1
+sys = GridOperatorAnalysis.construct_lcc_sys(bflow, dflow, a; f₀, g, 𝕂ᵘ, 𝕂ᵇ, hmt_scheme, hst_scheme, dissip_scheme);
+
 # ╔═╡ 7f20375f-6491-47ff-bcc0-fb77baa8bedf
 hds = let
 	cpb = colpts[colpt_type(flow_t, :b)]
@@ -745,6 +785,15 @@ begin
     end
     fflow = flowft_t{Symbolics.Num}(; u⃗=u⃗̂, w=ŵ, ∫∇ᵀu⃗dz=∫∇ᵀu⃗̂dz, b=b̂, p=p̂, η=η̂)
 end;
+
+# ╔═╡ c4bdbd16-6527-4bca-808f-bb16ebb6e8c0
+ftsys = GridOperatorAnalysis.fourier_transform_sys(Val(grid_t), sys; dflow, fflow, ϕ);
+
+# ╔═╡ 7d618255-0b0c-408a-ae10-653383d6f4de
+fsymbols = GridOperatorAnalysis.fouriersymbols(Val(grid_t), ftsys, fflow; k, l, f₀, g, N², M²=√(f₀^2*N²/Ri), β, θU, a, h);
+
+# ╔═╡ af136d97-0266-49d8-a1da-06a5cd957170
+(fsymbols[:Γx] * Symbolics.Num(1))
 
 # ╔═╡ 4b2d9f6d-4438-436a-91cb-47fb66270841
 fhds = [
@@ -984,11 +1033,15 @@ begin
 		end
 		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapprox
-			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
+			#F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
+			F .= substitute.(F, Ref(Dict(h=>sqrt3/2 * a)))
 			F .= simplify.(F; expand=true)
 			F .= substitute.(F, Ref(sqrt3_subs))
+			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		else
 			F = expand(F)
+			F = substitute.(F, Ref(Dict(h=>sqrt3/2 * a)))
+			F = simplify.(F; expand=true)
 			F = substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
 		substitute.(F, Ref(Dict(
@@ -1004,11 +1057,19 @@ begin
 	@variables gx gy U V
 	_gx = taylor_coeff.(Fn, cos(θU), 1)
 	_gy = taylor_coeff.(Fn, sin(θU), 1)
-	(gx * U .+ gy * V, U*_gx, U*_gy)
+	_gx = simplify.(_gx; expand=true)
+	_gy = simplify.(_gy; expand=true)
+	_gy = substitute.(_gy, Ref(Dict(a^2=>4//3 * h^2)))
+	_gy = simplify.(_gy; expand=true)
+	
+	(U*gx .+ V*gy, U*_gx, U*_gy)
 end
 
 # ╔═╡ 0e2ee007-f695-408b-9a8f-3619b72c137f
+# ╠═╡ disabled = true
+#=╠═╡
 push!(Gs, (_gx, _gy))
+  ╠═╡ =#
 
 # ╔═╡ 48234252-8562-4303-bd9a-1e53d7b95a8f
 U * simplify.(Gs[1][1] .- Gs[4][1]; expand=true)
@@ -1063,7 +1124,7 @@ begin
 	@variables K̃
 	Fb = let
 		F = sfbs./ Ū
-		F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
+		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
 		if doapproxs
 			F .= substitute.(F, Ref(Dict(a=>2/sqrt3 * h)))
 			F .= substitute.(F, Ref(Dict(
@@ -1081,12 +1142,23 @@ begin
 			F .= substitute.(F, Ref(Dict(sqrt3 => 2 * h/a)))
 		end
 	end
-	Fb .= simplify.(Fb; expand=true)
+	@variables 𝒢x 𝒢y
+	_𝒢x = taylor_coeff.(Fb, cos(θU), 1) .|> Symbolics.wrap
+	_𝒢y = taylor_coeff.(Fb, sin(θU), 1) .|> Symbolics.wrap
+	_𝒢x = substitute.(_𝒢x, Ref(phase_subs))
+	_𝒢x = simplify.(_𝒢x; expand=true)
+	_𝒢y = substitute.(_𝒢y, Ref(phase_subs))
+	_𝒢y = simplify.(_𝒢y; expand=true)
+	_𝒢y = substitute.(_𝒢y, Ref(Dict(a^2=>4//3 * h^2)))
+	_𝒢y = simplify.(_𝒢y; expand=true)
+	
+	(U*𝒢x .+ V*𝒢y, imag.(_𝒢x) .+ real.(_𝒢x)*im, imag.(_𝒢y) .+ real.(_𝒢y)*im)
+	#Fb .= simplify.(Fb; expand=true)
 end
 
 # ╔═╡ 7509a8b9-468b-4b2b-8a8c-175b3f045c4b
 begin
-	@variables Axx Axy Ayx Ayy
+	@variables Axx Axy Ayx Ayy Ax Ay
 	T = let
 		F = sfus ./ M²
 		#F = substitute.(F, Ref(Dict(k => K * cos(θU), l => K * sin(θU))))
@@ -1116,15 +1188,23 @@ begin
 		@assert isequal(expand.(T[:,:,1]), expand.(-sin(θU) * _Axx + cos(θU) * _Axy))
 		@assert isequal(expand.(T[:,:,2]), expand.(-sin(θU) * _Axy + cos(θU) * _Ayy))
 		@assert isequal(expand.(_Axy), expand.(_Ayx))
-		_Axx = simplify.(_Axx; expand=true)
-		_Axy = simplify.(_Axy; expand=true)
-		_Ayx = simplify.(_Ayx; expand=true)
-		_Ayy = simplify.(_Ayy; expand=true)
+		_Axx = simplify.(_Axx; expand=true, rewriter=trigwriter)
+		_Axy = simplify.(_Axy; expand=true, rewriter=trigwriter)
+		_Ayx = simplify.(_Ayx; expand=true, rewriter=trigwriter)
+		_Ayy = simplify.(_Ayy; expand=true, rewriter=trigwriter)
 		
 		
 		(-sin(θU) * M² * Axx + cos(θU) * M² * Axy, -sin(θU) * M² * Ayx + cos(θU) * M² * Ayy, _Axx, _Axy, _Ayx, _Ayy)
 	else
-		T
+		_Ax = taylor_coeff.(-T[:,:], sin(θU), 1)
+		_Ay = taylor_coeff.(T[:,:], cos(θU), 1)
+		@assert all(iszero.(simplify.(expand.(T[:,:]) .- expand.(-sin(θU) * _Ax + cos(θU) * _Ay))))
+		#_Ax = simplify.(_Ax*sqrt3; expand=true, rewriter=trigwriter)
+		_Ax = substitute.(_Ax, Ref(phase_subs))
+		_Ax = simplify.(_Ax*sqrt3; expand=true)#, rewriter=trigwriter)
+		_Ay = simplify.(_Ay; expand=true, rewriter=trigwriter)
+		_Ay = substitute.(_Ay, Ref(phase_subs))
+		(-sin(θU) * M² * Ax + cos(θU) * M² * Ay, _Ax, _Ay)
 	end
 end
 
@@ -1415,21 +1495,17 @@ compute_symbolic_eigenvals = let
 end
 
 # ╔═╡ 16535b97-0c7e-4c14-9e71-604b0e0c9a3d
-# ╠═╡ disabled = true
-#=╠═╡
 if doapprox
 	svs = compute_symbolic_eigenvals(Symbolics.wrap.(Fn))
 	svs = Symbolics.simplify.(svs; expand=true)
 else
 	"Computation of symbolic eigenvalues not implemented in this case."
 end
-  ╠═╡ =#
 
 # ╔═╡ f1feff04-e468-4909-af4c-9bc5a032f407
-#=╠═╡
 K̃s, ωs = let
-	@variables K̃
-	K̃s = range(1e-20, π, 100) #floatmin(Float64)
+	@variables K̃ K
+	K̃s = range(1e-20, π * 2/√3, 100) #floatmin(Float64)
 	ωs = []
 	if doapprox
 		for sv in svs
@@ -1443,8 +1519,10 @@ K̃s, ωs = let
 			push!(ωs, vfunc.(K̃s))
 		end
 	else
-		A = substitute.(Fn, Ref(Dict(
-			θU => 0, 
+		A = cos(θU) .* _gx .+ sin(θU) .* _gy
+		A = substitute.(A, Ref(Dict(k => cos(θU) * K, l => sin(θU) * K)))
+		A = substitute.(A, Ref(Dict(
+			θU => sθU, 
 			h => K̃ / K, 
 			a => K̃ / K * 2 / √3, 
 			sqrt3 => √3,
@@ -1466,16 +1544,14 @@ K̃s, ωs = let
 	end
 	(K̃s, ωs)
 end;
-  ╠═╡ =#
 
 # ╔═╡ 54131367-66b2-4bc7-8820-0b6a5fc19ae3
-#=╠═╡
 let
 	f = Figure(; fontsize=36)
 	ax = Axis(f[1,1];
-			 xlabel = "wavenumber / h⁻¹",
+			 xlabel = L"\text{wavenumber}~K / h^{-1}",
 			 ylabel = L"ω / i\bar{U}K",
-			 limits = (0, π, -2, 1.1), 
+			 limits = (0, π * 2/√3, -2.1, 1.1), 
 			 aspect = 1,
 			 )
 	if doapprox
@@ -1483,16 +1559,20 @@ let
 			lines!(ax, K̃s, imag.(ω), linewidth=3)
 		end
 	else
-		for (k̃, ω) in zip(K̃s, ωs)
-			for _ω in ω
-				scatter!(ax, k̃, imag(_ω); color=:blue)
-			end
+		_ωs = stack(ωs)
+		_ωs = sort(_ωs, dims=1, by=imag)
+		for i = 1:size(_ωs, 1)
+			lines!(ax, K̃s, imag.(_ωs[i,:]); linewidth=3)
 		end
+		#for (k̃, ω) in zip(K̃s, ωs)
+		#	for _ω in ω
+		#		scatter!(ax, k̃, imag(_ω); color=:blue)
+		#	end
+		#end
 	end
 	#axislegend()
 	f
 end
-  ╠═╡ =#
 
 # ╔═╡ 6dab1873-d738-4e41-9d16-0f83fb168bd4
 if doapproxs
@@ -1519,8 +1599,10 @@ let
 				push!(ωs, vfunc.(K̃s))
 			end
 		else
-			A = substitute.(Fb / K, Ref(Dict(
-				θU => 0, 
+			A = cos(θU) .* _𝒢x .+ sin(θU) .* _𝒢y
+			A = substitute.(A, Ref(Dict(k => cos(θU) * K, l => sin(θU) * K)))
+			A = substitute.(A, Ref(Dict(
+				θU => tθU, 
 				h => K̃ / K, 
 				a => K̃ / K * 2 / √3, 
 				sqrt3 => √3,
@@ -1544,9 +1626,9 @@ let
 	end
 	f = Figure(; fontsize=36)
 	ax = Axis(f[1,1];
-			 xlabel = "wavenumber / h⁻¹",
+			 xlabel = L"\text{wavenumber}~K / h^{-1}",
 			 ylabel = L"ω / i\bar{U}K",
-			 limits = (0, π, -1, 1.1), 
+			 limits = (0, π, -2.1, 1.1), 
 			 aspect = 1,
 			 )
 	if doapproxs
@@ -1554,11 +1636,16 @@ let
 			lines!(ax, K̃s, imag.(ω), linewidth=3)
 		end
 	else
-		for (k̃, ω) in zip(K̃s, ωs)
-			for _ω in ω
-				scatter!(ax, k̃, imag(_ω); color=:blue)
-			end
+		ωs = stack(ωs)
+		ωs = sort(ωs, dims=1, by=imag)
+		for i = 1:size(ωs, 1)
+			lines!(ax, K̃s, imag.(ωs[i,:]); linewidth=3)
 		end
+		#for (k̃, ω) in zip(K̃s, ωs)
+		#	for _ω in ω
+		#		scatter!(ax, k̃, imag(_ω); color=:blue)
+		#	end
+		#end
 	end
 	#axislegend()
 	f
@@ -1580,6 +1667,8 @@ end
 # ╠═d2b72544-78fb-4a0b-b169-aa50ebaeb31d
 # ╟─9abfbc35-bd37-4554-949c-27cd2bdfa1a7
 # ╠═cfb78fd5-4435-4c0d-8cf2-1b5fffc2f91e
+# ╠═b94ae1e9-1a38-4c45-9adc-df1f472f944b
+# ╠═acd16e8d-1d5e-451b-b02f-af5ccfb28218
 # ╟─428cc192-03d0-497c-aee7-f7015c4c09d5
 # ╠═fb5e7874-c067-4769-aefa-260fd3eca00b
 # ╟─a697761a-3f01-46ac-ae31-4665bc7b6e47
@@ -1587,8 +1676,13 @@ end
 # ╠═1b94a213-9311-4dad-bc3e-0ac2dcb71e14
 # ╟─430cca4e-08b6-4d57-a4dc-422dcf8cc92e
 # ╠═8ae523f0-1eeb-4d62-b089-502c52dd1277
+# ╟─da53d71b-e5b3-4ce0-8ce8-1a0449c4fd32
+# ╠═26c59f64-ad09-4ac6-a3ad-63f6372550a1
 # ╟─77eb6488-c26a-416a-839b-1e617f0cdd50
 # ╠═780abc6b-d9ab-40d1-9a01-d12b1d3fc3ae
+# ╠═c4bdbd16-6527-4bca-808f-bb16ebb6e8c0
+# ╠═7d618255-0b0c-408a-ae10-653383d6f4de
+# ╠═af136d97-0266-49d8-a1da-06a5cd957170
 # ╟─3b152922-e343-42a1-b863-38814a80b0d7
 # ╟─33e1ab03-9e1a-4014-84ed-1ad393f0445e
 # ╟─f9adc84b-12c3-4a1c-8400-6ede0108c9e9
@@ -1607,14 +1701,14 @@ end
 # ╠═1a79ecd9-5dbf-4811-8858-a38943a019f6
 # ╠═d4e73efc-770c-4872-ab18-40b9c0c40b1f
 # ╠═9a35e1dc-7eb0-49d8-bcc8-720802fdea83
-# ╠═0eb891bb-504e-45a4-96ba-0618b5b069d9
 # ╠═bc020f4e-ad0c-47e3-b14b-5b3e5260f286
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
 # ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
 # ╠═f1feff04-e468-4909-af4c-9bc5a032f407
 # ╠═5708950e-80fb-4296-adfa-e2db01284d06
 # ╠═4ffe2716-9a66-4ca5-bf4b-367e85399a5b
-# ╟─54131367-66b2-4bc7-8820-0b6a5fc19ae3
+# ╟─0890ade4-59b2-45cf-a71d-35f918c71883
+# ╠═54131367-66b2-4bc7-8820-0b6a5fc19ae3
 # ╠═57b612b5-afb6-44db-ad3f-6c9882afae14
 # ╟─990c73d7-0d2a-457c-81c7-88a1f80cb44a
 # ╟─27ec48bb-d7bb-4b70-9932-08f0e0926504
@@ -1631,14 +1725,16 @@ end
 # ╠═70137bf3-0f04-4863-ad91-2087ae3f1d3f
 # ╠═f6ca4f11-9268-4525-bce2-588c7fae846b
 # ╟─05fb2f19-1b43-4e7a-84c5-1ea8a71b9284
+# ╠═cd073fd5-749e-4812-8e65-c6677722fcf3
 # ╠═7509a8b9-468b-4b2b-8a8c-175b3f045c4b
 # ╟─26fd8b72-c736-43db-9d32-f76cbe5dd901
 # ╠═6dab1873-d738-4e41-9d16-0f83fb168bd4
 # ╟─5d83c523-626f-4b06-85ee-8b71423d398a
 # ╠═30620b89-ced4-4353-bf3f-6d9c58794aa4
 # ╠═932e3e09-c15f-4b0e-944a-1eecbcf378d7
-# ╟─6a120e6b-ced8-414a-a56b-3b49ea21c8fa
-# ╠═0e90c7a9-fc7e-4890-b6e0-32ca12e8ae7d
+# ╠═6a120e6b-ced8-414a-a56b-3b49ea21c8fa
+# ╟─23a4913d-3686-42a0-a2ce-c34b298fa59f
+# ╟─0e90c7a9-fc7e-4890-b6e0-32ca12e8ae7d
 # ╟─9b3f3f72-ffb8-477d-b1a5-4a14d64d36e8
 # ╟─5361ebe0-a415-416c-b57f-051b0e6382f6
 # ╟─bc991b63-8e0e-4e37-9369-15f2e11e195e
