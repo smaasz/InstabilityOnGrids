@@ -33,6 +33,8 @@ begin
 	import GridOperatorAnalysis
 	import LinearAlgebra: eigen
 	import OffsetArrays: no_offset_view
+	using PrettyTables 
+	import ProgressLogging: @progress
 	import Symbolics: substitute, @variables, taylor_coeff, simplify, coeff, taylor, expand, det
 	import Symbolics
 	import SymbolicUtils
@@ -40,6 +42,9 @@ begin
 	using PlutoUI
 	using UUIDs: uuid1
 end;
+
+# ╔═╡ 4866b3d6-92e8-4ef5-b63d-0f0f4a733fba
+using LinearAlgebra
 
 # ╔═╡ b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
 md"""
@@ -76,7 +81,7 @@ invphase_subs = GridOperatorAnalysis.invphasesubs(a, h, k, l);
 
 # ╔═╡ 428cc192-03d0-497c-aee7-f7015c4c09d5
 md"""
-#### Background flow
+### Background flow
 
 The baroclinically unstable flow with a sloping buoyancy profile in across-front direction (first studied by Eady) is projected onto the respective discrete spaces.
 The flow is parametrized by:
@@ -107,9 +112,24 @@ __Vertical velocity profile in the flow direction__
 # ╔═╡ 1b94a213-9311-4dad-bc3e-0ac2dcb71e14
 Ū = (z + 4000 * (1//2 + β)) * -M²/f₀
 
+# ╔═╡ 046f634d-2bb7-473a-8d74-46c54908347e
+Ūz = Symbolics.expand_derivatives(Symbolics.Differential(z)(Ū))
+
+# ╔═╡ fbe45252-2d1b-4708-856f-a06d551ac233
+begin
+	U  = Ū * cos(θU)
+	V  = Ū * sin(θU)
+	Uz = Ūz * cos(θU)
+	Vz = Ūz * sin(θU)
+	Bx = M² * -sin(θU)
+	@assert isequal(Bx, f₀ * Vz)
+	By = M² * cos(θU)
+	@assert isequal(By, -f₀ * Uz)
+end;
+
 # ╔═╡ 430cca4e-08b6-4d57-a4dc-422dcf8cc92e
 md"""
-#### Pertubation Flow
+### Pertubation Flow
 
 The background flow is perturbed by another flow scaled by the asymptotic parameter $\epsilon$.
 """
@@ -121,11 +141,16 @@ __Dissipation scheme__: $(@bind dissip_scheme Select([:biharmonic => "biharmonic
 
 # ╔═╡ 77eb6488-c26a-416a-839b-1e617f0cdd50
 md"""
-#### Flow in Wavenumber Space
+### Flow in Wavenumber Space
 """
 
 # ╔═╡ 7741fc90-ad1f-4dab-baa5-bbf373592e13
 @variables K̃
+
+# ╔═╡ 0446f12a-66e4-46e2-9aa7-3fe63bc44574
+md"""
+### Computation of the Fourier Symbols
+"""
 
 # ╔═╡ 0f1cbe99-8b11-426d-8d28-77b6dffef277
 md"""
@@ -136,6 +161,24 @@ __Small wavenumber approximation__: $(@bind doapprox CheckBox(default=true))
 md"""
 __Phase substitutions__: $(@bind dophasesubs CheckBox(default=false))
 """
+
+# ╔═╡ fe9acceb-60d4-42d8-9854-cb027230ca18
+md"""
+Define buffers for the Fourier symbols.
+"""
+
+# ╔═╡ 1ef6555a-c5cb-4e03-bd20-46265e262d87
+md"""
+Define values for the parameters of the experiment
+"""
+
+# ╔═╡ 228df754-1231-4cda-9dde-982eb118491b
+begin
+	const _f₀ = -1e-4
+	const _g  = 1e9
+	const _N² = 1e-6
+	const _H  = 4000.0
+end;
 
 # ╔═╡ e287982b-5fea-4d73-a0ce-d2627635ddb2
 if grid_t == :TriC
@@ -257,11 +300,6 @@ df = []
 #=╠═╡
 push!(df, hmt_scheme => (K̃s, ωs))
   ╠═╡ =#
-
-# ╔═╡ 0890ade4-59b2-45cf-a71d-35f918c71883
-md"""
-θU: $(@bind sθU PlutoUI.Slider([1e-20, π/12, π/6]; show_value=true))
-"""
 
 # ╔═╡ 57b612b5-afb6-44db-ad3f-6c9882afae14
 let
@@ -595,9 +633,9 @@ begin
 
             	color: var(--pluto-output-color);
             	position:fixed;
-            	right: 1rem;
+            	right: 80rem;
             	top: $(top)px;
-            	width: 200px;
+            	width: 230px;
             	padding: 10px;
             	border: 3px solid rgba(0, 0, 0, 0.15);
             	border-radius: 10px;
@@ -627,6 +665,36 @@ begin
     end
     floataside(stuff; kwargs...) = floataside(md"""$(stuff)"""; kwargs...)
 end;
+
+# ╔═╡ 032ea9e6-cc9b-4c66-bd7c-2c51c6a29afa
+begin
+	floataside(md"""
+Number of layers: $(@bind sNz PlutoUI.Slider([16, 32, 64]; show_value=true))
+			   
+Flow direction: $(@bind sθU PlutoUI.Slider([0.0, π/12, π/6]; show_value=true))
+
+Flow shift (in -HM²/f₀): $(@bind sβ PlutoUI.Slider(-0.5:0.1:0.5; default=0.0, show_value=true))
+
+le: $(@bind sle PlutoUI.Slider([1e-28, 1.575e3, 3.125e3, 6.25e3, 12.5e3, 25e3]; default=6.25e3, show_value=true))
+
+Ri: $(@bind sRi Select([100.0, 0.5]; default=100//1))
+
+hst-scheme: $(@bind shst_scheme Select([:low => "low-order accurate", :high => "high-order accurate"]))
+
+Vᵘ: $(@bind sVᵘ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
+
+Vᵇ: $(@bind sVᵇ PlutoUI.Slider([0, 1e-3, 5e-3, 1e-2]; show_value=true))
+""")
+end
+
+# ╔═╡ a6664a8d-a72e-437f-aedb-894ff45bdf31
+pretty_table(HTML,
+	[sNz sθU sβ sle sRi sVᵘ sVᵇ];
+	header = (
+		["Nz"; "θU"; "β"; "a"; "Ri"; "Vᵘ"; "Vᵇ"],
+		["/ 1"; "/ 1"; "/ HM²(-f₀)⁻¹"; "/ m"; "/ 1"; "/ ms⁻¹"; "/ ms⁻¹"]	 
+			 ),
+)
 
 # ╔═╡ e18fbb3e-02cb-4add-ab00-9e0cc7ae935f
 # ╠═╡ disabled = true
@@ -814,6 +882,15 @@ ftsys = GridOperatorAnalysis.fourier_transform_sys(Val(grid_t), sys; dflow, fflo
 # ╔═╡ 7d618255-0b0c-408a-ae10-653383d6f4de
 fsymbols = GridOperatorAnalysis.fouriersymbols(Val(grid_t), ftsys, fflow; k, l, f₀, g, N², M²=√(f₀^2*N²/Ri), β, θU, 𝕂ᵘ, 𝕂ᵇ, a, h, doapprox, dophasesubs);
 
+# ╔═╡ 1692af65-3054-42af-b946-3c2ec2e95f46
+const b = let
+	b = Dict()
+	for (name, fsymbol) in pairs(fsymbols)
+		b[name] = zeros(ComplexF64, size(fsymbol)...)
+	end
+	b
+end;
+
 # ╔═╡ f956d11d-37f5-4a7c-bfd9-471104e1d8a3
 if colpt_type(flow_t, :u⃗) ≠ :edge
 	let
@@ -879,6 +956,9 @@ end
 
 # ╔═╡ bdc0e050-28c9-44f5-acde-b1c63521d791
 expand.(fsymbols[:Dᵇ])
+
+# ╔═╡ 080feec3-7dcb-4ba9-958d-51d8cadf8422
+fsymbols[:D][:,2,:]
 
 # ╔═╡ 4b2d9f6d-4438-436a-91cb-47fb66270841
 fhds = [
@@ -1603,6 +1683,187 @@ else
 	"Computation of symbolic eigenvalues not implemented in this case."
 end
 
+# ╔═╡ 8f41d758-ea81-4874-9120-319b6ee81f69
+begin
+	Uf = let
+		_U = substitute(U, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_U, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end;
+	Vf = let
+		_V = substitute(V, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_V, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end;
+	Uzf = let
+		_Uz = substitute(Uz, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_Uz, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end;
+	Vzf = let
+		_Vz = substitute(Vz, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_Vz, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end;
+	Bxf = let
+		_Bx = substitute(Bx, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_Bx, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end;
+	Byf = let
+		_By = substitute(By, Dict(M² => √(f₀^2*N²/Ri)))
+		Symbolics.build_function(_By, z, f₀, N², Ri, θU, β; expression=Val(false))
+	end
+end;
+
+# ╔═╡ c391e857-dd11-429e-a605-3a5b5f266710
+begin
+	fsyms = Dict()
+	let
+		fsymbols = GridOperatorAnalysis.fouriersymbols(Val(grid_t), ftsys, fflow; k, l, f₀, g, N², M²=√(f₀^2*N²/Ri), β, θU, 𝕂ᵘ, 𝕂ᵇ, a, h, doapprox=false, dophasesubs=false);
+	
+		for (name, fsymbol) in pairs(fsymbols)
+			fsyms[name] = Symbolics.build_function(fsymbol, z, f₀, N², Ri, θU, β, k, l, a, h; expression=Val(false))
+		end
+	end
+end
+
+# ╔═╡ 6f582864-3f02-4bc7-99d5-838942e821e2
+function systemmat(::Union{Val{:TriB}, Val{:TriA}}, k, l; Nz, Ri, θU, β, a, Vᵘ, Vᵇ)
+	Δz  = _H / Nz
+	h   = a * √3/2
+
+	# conversion to dissipation parameters
+	if dissip_scheme == :biharmonic
+		𝕂ᵘ = Vᵘ * a^3
+		𝕂ᵇ = Vᵇ * a^3
+	else
+		𝕂ᵘ = Vᵘ * a
+		𝕂ᵇ = Vᵇ * a
+	end;
+
+	# compute fourier symbols
+	for (name, fsym) in pairs(fsyms)
+		fsym[2](b[name], z, _f₀, _N², Ri, θU, β, k, l, a, h)
+	end
+
+	# vertical operators
+	U̲ = Diagonal([Uf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	V̲ = Diagonal([Vf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	U̲⃗ = (U̲, V̲)
+	U̲z = Diagonal([Uzf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	V̲z = Diagonal([Vzf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	U̲⃗z = (U̲z, V̲z)
+	B̲x = Diagonal([Bxf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	B̲y = Diagonal([Byf(((iV-1/2)-Nz) * Δz, _f₀, _N², Ri, θU, β) for iV=1:Nz])
+	B̲⃗ = (B̲x, B̲y)
+	
+
+	du = dims(colpt_type(flow_t, :u⃗))
+	ds = dims(colpt_type(flow_t, :b))
+	W̲ = let
+		M = Δz * 1/2 * [iV ≤ iVi ≤ iV+1 for iV=1:Nz, iVi=1:Nz+1] * [iV < iVi ? 1 : 0 for iVi=1:Nz+1, iV=1:Nz]
+		if colpt_type(flow_t, :u⃗) == :edge
+			[kron(-b[:D][:,:], M)]
+		else
+			[kron(-b[:D][:,jTH,:], M) for jTH=1:2]
+		end
+	end
+	
+	P̲ = let
+		M = Δz * 1/2 * [iV ≤ iVi ? 1 : 0 for iV=1:Nz, iVi=1:Nz-1] * [iVi ≤ iV ≤ iVi+1 for iVi=1:Nz-1, iV=1:Nz]
+		kron(I(ds), -M)
+	end
+
+	# assembling	
+	S̲ = if colpt_type(flow_t, :u⃗) == :edge
+		zeros(ComplexF64, (du+ds)*Nz+2, (du+ds)*Nz+2)
+	else
+		zeros(ComplexF64, (2*du+ds)*Nz+1, (2*du+ds)*Nz+1)
+	end
+
+	ru⃗, rb, rη = if colpt_type(flow_t, :u⃗) == :edge
+		([1:du*Nz], du*Nz+1:(du+ds)*Nz, (du+ds)*Nz+1:(du+ds)*Nz+ds)
+	else
+		([(iTH-1)*du*Nz+1:iTH*du*Nz for iTH=1:2], 2*du*Nz+1:(2*du+ds)*Nz, (2*du+1)*Nz+1:(2*du+1)*Nz+1)
+	end 
+	# U⃗
+	if colpt_type(flow_t, :u⃗) == :edge
+		#kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][:,:], Ū̲)
+		#S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:Gy][:,:], V̲)
+		#S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ˣ⁾][iTH,:,:], U̲z) * W̲[jTH]
+		#S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ʸ⁾][iTH,:,:], V̲z) * W̲[jTH]
+		#S̲[ru⃗[iTH], ru⃗[jTH]] += _f₀*kron(b[:M][iTH,:,jTH,:], I(Nz))
+		#S̲[ru⃗[iTH], ru⃗[jTH]] += 𝕂ᵘ * kron(b[:Dᵘ][iTH,:,jTH,:], I(Nz))
+
+		#kron!(S̲[ru⃗[iTH], rb], b[:G][iTH,:,:], I(Nz))
+		#S̲[ru⃗[iTH], rb] *= P̲
+
+		#kron!(S̲[ru⃗[iTH], rη], b[:G][iTH,:,:], _g*ones(Nz,1))
+	else
+		@views for iTH = 1:2
+			for jTH = 1:2
+				kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][iTH,:,jTH,:], U̲)
+				S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:Gy][iTH,:,jTH,:], V̲)
+				S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ˣ⁾][iTH,:,:], U̲z) * W̲[jTH]
+				S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ʸ⁾][iTH,:,:], V̲z) * W̲[jTH]
+				S̲[ru⃗[iTH], ru⃗[jTH]] += _f₀*kron(b[:M][iTH,:,jTH,:], I(Nz))
+				S̲[ru⃗[iTH], ru⃗[jTH]] += 𝕂ᵘ * kron(b[:Dᵘ][iTH,:,jTH,:], I(Nz))
+			end
+	
+			kron!(S̲[ru⃗[iTH], rb], b[:G][iTH,:,:], I(Nz))
+			S̲[ru⃗[iTH], rb] *= P̲
+	
+			kron!(S̲[ru⃗[iTH], rη], b[:G][iTH,:,:], _g*ones(Nz,1))
+		end
+	end
+
+	# b
+	@views for jTH = 1:2
+		S̲[rb, ru⃗[jTH]] += _N² * kron(b[:I], I(Nz)) * W̲[jTH]
+		S̲[rb, ru⃗[jTH]] += kron(b[:Av⁽ˣ⁾][:,jTH,:], B̲x)
+		S̲[rb, ru⃗[jTH]] += kron(b[:Av⁽ʸ⁾][:,jTH,:], B̲y)
+	end
+	@views kron!(S̲[rb, rb], b[:Γx], U̲)
+	@views S̲[rb, rb] += kron(b[:Γy], V̲)
+	@views S̲[rb, rb] += 𝕂ᵇ * kron(b[:Dᵇ], I(Nz))
+
+	# η
+	@views for jTH = 1:2
+		kron!(S̲[rη, ru⃗[jTH]], b[:D][:,jTH,:], Δz*ones(1,Nz))
+	end
+
+	S̲[rη, rη] .= U̲[end] * b[:Γx] + V̲[end] * b[:Γy]
+	
+	S̲
+end
+
+# ╔═╡ 920812c0-9f60-4871-9340-ad69601a73af
+(Ks, iωs) = let
+	Kmax = min(1e-2, 2/√3*π/sle)
+    Ks  = range(1e-10, Kmax, 200)
+	iωs = []
+	θU = sθU + (sRi > 1 ? 0 : π/2)
+	@progress for K in Ks
+		_k = K * cos(θU)
+		_l = K * sin(θU)
+		S̲ = systemmat(Val(grid_t), _k, _l; Nz=sNz, Ri=sRi, θU=sθU, β=sβ, a=sle, Vᵘ=sVᵘ, Vᵇ=sVᵇ)
+		F = eigen(-S̲)
+		push!(iωs, F.values[end])
+	end
+	(Ks, iωs)
+end
+
+# ╔═╡ 0cc8ca38-4130-4733-9dae-0772c285c1ba
+let
+	_M² = √(_f₀^2*_N²/sRi)
+	lines(Ks / min(1e-2, 2/√3*π/sle), real.(iωs) .* (sqrt(_N²) / abs(_M²)))
+end
+
+# ╔═╡ fa998e43-087a-40a3-af47-8f2afb4dd976
+# ╠═╡ disabled = true
+#=╠═╡
+Gx = let
+	fsymbols = GridOperatorAnalysis.fouriersymbols(Val(grid_t), ftsys, fflow; k, l, f₀, g, N², M²=√(f₀^2*N²/Ri), β, θU, 𝕂ᵘ, 𝕂ᵇ, a, h, doapprox=false, dophasesubs=false);
+	Gx = Symbolics.build_function(fsymbols[:Gx], z, f₀, N², Ri, θU, β, k, l, a, h; expression=Val(false))
+end;
+  ╠═╡ =#
+
 # ╔═╡ Cell order:
 # ╟─b9cca8c1-0d0f-48f9-b21b-8d6df2cb77aa
 # ╠═f59a5438-8d5e-11f0-13fa-d9c703e5f87f
@@ -1619,6 +1880,8 @@ end
 # ╟─a697761a-3f01-46ac-ae31-4665bc7b6e47
 # ╠═2663542e-c719-42f0-bf00-790e8aa211fe
 # ╠═1b94a213-9311-4dad-bc3e-0ac2dcb71e14
+# ╠═046f634d-2bb7-473a-8d74-46c54908347e
+# ╠═fbe45252-2d1b-4708-856f-a06d551ac233
 # ╟─430cca4e-08b6-4d57-a4dc-422dcf8cc92e
 # ╠═8ae523f0-1eeb-4d62-b089-502c52dd1277
 # ╟─da53d71b-e5b3-4ce0-8ce8-1a0449c4fd32
@@ -1627,10 +1890,21 @@ end
 # ╠═7741fc90-ad1f-4dab-baa5-bbf373592e13
 # ╠═780abc6b-d9ab-40d1-9a01-d12b1d3fc3ae
 # ╠═c4bdbd16-6527-4bca-808f-bb16ebb6e8c0
+# ╟─0446f12a-66e4-46e2-9aa7-3fe63bc44574
 # ╟─0f1cbe99-8b11-426d-8d28-77b6dffef277
 # ╟─77fe42fd-ddbb-495a-979e-0a852600a2a6
 # ╠═7d618255-0b0c-408a-ae10-653383d6f4de
+# ╟─fe9acceb-60d4-42d8-9854-cb027230ca18
+# ╠═1692af65-3054-42af-b946-3c2ec2e95f46
+# ╟─1ef6555a-c5cb-4e03-bd20-46265e262d87
+# ╠═228df754-1231-4cda-9dde-982eb118491b
+# ╟─032ea9e6-cc9b-4c66-bd7c-2c51c6a29afa
+# ╠═a6664a8d-a72e-437f-aedb-894ff45bdf31
+# ╠═6f582864-3f02-4bc7-99d5-838942e821e2
+# ╠═920812c0-9f60-4871-9340-ad69601a73af
+# ╠═0cc8ca38-4130-4733-9dae-0772c285c1ba
 # ╟─e287982b-5fea-4d73-a0ce-d2627635ddb2
+# ╠═4866b3d6-92e8-4ef5-b63d-0f0f4a733fba
 # ╟─3b152922-e343-42a1-b863-38814a80b0d7
 # ╟─33e1ab03-9e1a-4014-84ed-1ad393f0445e
 # ╟─f9adc84b-12c3-4a1c-8400-6ede0108c9e9
@@ -1639,9 +1913,9 @@ end
 # ╠═f71432b9-cb86-4f5e-a6ba-4ad443140292
 # ╟─583e619a-76da-4f63-8377-b5eac40c96af
 # ╟─729a626e-376c-4ad9-96e8-f2e641f4d2a4
-# ╠═f956d11d-37f5-4a7c-bfd9-471104e1d8a3
+# ╟─f956d11d-37f5-4a7c-bfd9-471104e1d8a3
 # ╟─30725e26-6949-4605-a275-3f72eca04ece
-# ╠═c86c02aa-51a2-4af4-b6b0-13035262e909
+# ╟─c86c02aa-51a2-4af4-b6b0-13035262e909
 # ╠═0e2ee007-f695-408b-9a8f-3619b72c137f
 # ╟─33dcefea-8d67-4543-a241-3192ad3252d2
 # ╟─f457599b-08a8-4f60-bd4a-614a92091645
@@ -1652,13 +1926,12 @@ end
 # ╟─7d3ce7a0-eb0b-4801-8dec-84ba360dd477
 # ╟─9bcd1831-1391-466a-9cb8-8c547f82754f
 # ╟─4a18efe0-0d3e-481c-94a4-d1b3e4d56df3
-# ╠═72c3124a-ef7c-4d15-aac4-9cae947c201a
+# ╟─72c3124a-ef7c-4d15-aac4-9cae947c201a
 # ╟─46afe77d-f904-40e9-92bb-cab83aeea51e
 # ╠═16535b97-0c7e-4c14-9e71-604b0e0c9a3d
 # ╟─f1feff04-e468-4909-af4c-9bc5a032f407
 # ╠═5708950e-80fb-4296-adfa-e2db01284d06
 # ╠═4ffe2716-9a66-4ca5-bf4b-367e85399a5b
-# ╟─0890ade4-59b2-45cf-a71d-35f918c71883
 # ╟─54131367-66b2-4bc7-8820-0b6a5fc19ae3
 # ╠═57b612b5-afb6-44db-ad3f-6c9882afae14
 # ╟─990c73d7-0d2a-457c-81c7-88a1f80cb44a
@@ -1684,6 +1957,7 @@ end
 # ╟─564bd7ad-fc9f-4d69-a9c3-54d05f05fb5f
 # ╟─c6321e6c-e4ce-45fa-b884-69f14535db2d
 # ╠═bdc0e050-28c9-44f5-acde-b1c63521d791
+# ╠═080feec3-7dcb-4ba9-958d-51d8cadf8422
 # ╟─26fd8b72-c736-43db-9d32-f76cbe5dd901
 # ╟─6dab1873-d738-4e41-9d16-0f83fb168bd4
 # ╠═5d83c523-626f-4b06-85ee-8b71423d398a
@@ -1727,7 +2001,7 @@ end
 # ╟─7d55ea61-e0f1-4bd9-a36c-22857ad145e7
 # ╟─8eea87eb-048e-4436-9d20-3bcc9e76c7b7
 # ╟─f0f8c55d-82fa-4cf4-9678-555c1222e615
-# ╟─9b8a0e33-2422-48e6-93d4-0313c557abe3
+# ╠═9b8a0e33-2422-48e6-93d4-0313c557abe3
 # ╟─e18fbb3e-02cb-4add-ab00-9e0cc7ae935f
 # ╟─e322d734-1c1a-4ce1-a147-9f8420c64203
 # ╟─3782fb16-26b7-4edd-8591-ef119b1cabef
@@ -1744,3 +2018,6 @@ end
 # ╠═4c17d92e-cdf7-442f-9087-102ff8109a8a
 # ╠═dc22802f-307d-4bf1-a10d-3e1b0180783e
 # ╠═e667e7fd-ab40-49c9-b8ca-a4aff155e833
+# ╠═8f41d758-ea81-4874-9120-319b6ee81f69
+# ╠═c391e857-dd11-429e-a605-3a5b5f266710
+# ╠═fa998e43-087a-40a3-af47-8f2afb4dd976
