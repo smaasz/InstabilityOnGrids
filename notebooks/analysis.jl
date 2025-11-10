@@ -57,23 +57,6 @@ md"""
 # ╔═╡ 1aa38ca9-ab99-4d2b-ad5d-c5a18d055229
 Symbolics.@variables _g _f₀ _N²
 
-# ╔═╡ b02f29a5-7f20-49dd-aa0a-9b30d8b4a1ed
-# ╠═╡ disabled = true
-# ╠═╡ skip_as_script = true
-#=╠═╡
-begin
-	const f₀ = -1e-4
-	const g  = 1e9
-	const N² = 1e-6
-	const U  = 1.0
-	const H  = 4000
-	const Nz = 4
-end;
-  ╠═╡ =#
-
-# ╔═╡ 99dab097-3490-46cb-bf26-62b60b51d3c2
-const Nz = 16
-
 # ╔═╡ 2e485b46-7aa1-483d-9c25-95cd98439ccc
 md"""
 ## Discretization
@@ -98,7 +81,9 @@ __Choice of the grid__: $(@bind _grid_t PlutoUI.Select([:TriA => "triangular A-G
 grid_t = Val(_grid_t)
 
 # ╔═╡ a832b824-afdb-458c-9f91-ea023c52852e
+#=╠═╡
 bflow = eady_background_flow(grid_t, le; f₀=_f₀, N²=_N², Ri=Ri, H, U=1, θU=θU, β=β);
+  ╠═╡ =#
 
 # ╔═╡ b9fa1a9b-7989-4f1c-abe8-de153cf8085f
 dflow = let
@@ -118,6 +103,7 @@ dflow = let
 end;
 
 # ╔═╡ 0ef5eb5f-6c6c-4ecc-87bd-16247f9056e4
+#=╠═╡
 begin
 	@variables ϵ
 	pflow = let
@@ -125,8 +111,10 @@ begin
 		pflow = typeof(dflow)(state)
 	end
 end;
+  ╠═╡ =#
 
 # ╔═╡ 0d0a0e92-2d63-4745-9114-8a10c5be58de
+#=╠═╡
 begin
 	@variables Im
 	upin = grid_t == Val(:TriA) ? vin : (grid_t == Val(:TriB) ? cin : ein)
@@ -142,11 +130,6 @@ begin
 	p = pflow.p[spin[1], spin[2], spin[3]]
 	∫∇ᵀu⃗dz = pflow.∫∇ᵀu⃗dz[spin[1], spin[2], spin[3]]
 end;
-
-# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
-# ╠═╡ disabled = true
-#=╠═╡
-(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
   ╠═╡ =#
 
 # ╔═╡ e9c5a7ef-6412-4b59-9aa7-d240277550e0
@@ -219,7 +202,9 @@ function EqSchemes(schemes)
 end
 
 # ╔═╡ 61150eb4-c9ce-4fd8-8314-780b9c1c29b6
+#=╠═╡
 u⃗⊥ = [-u⃗[2]; u⃗[1]];
+  ╠═╡ =#
 
 # ╔═╡ 29bef65a-0414-4304-a718-189b6885d2e3
 schemes = Dict(
@@ -301,16 +286,18 @@ schemes = Dict(
 			("TriC.Pᵀec(eout, cin, w * TriC.Pce(cin, ein, ∂₃(u⃗)))", 1) => "evalat(eout, ein, w̄) * ∂₃(evalat(eout, ein, ū))"
 		],
 		[
+			("TriC.∇ec(eout, cin, p)", 0) => "TriC.∇ec(eout, cin, p)",
 			("TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))", 0) => "TriC.ℳ(eout,  e, TriC.∇ec(e, cin, p))"
 		],
 		[
+			("g * TriC.∇ec(eout, cin, η)", 0) => "g * TriC.∇ec(eout, cin, η)",
 			("g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))", 0) => "g * TriC.ℳ(eout,  e, TriC.∇ec(e, cin, η))"
 		],
 		[
-			("𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)",
-			("𝕂ᵘ * -TriC.ℳ(eout, e, TriC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * -evalat(eout, ein, Δu⃗)",
 			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 0) => "𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))",
 			("𝕂ᵘ * TriC.Δ⃗(eout, e, TriC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * evalat(eout, ein, Δ²u⃗))", 
+			("𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)", 0) => "𝕂ᵘ * -TriC.Δ⃗(eout, ein, u⃗)",
+			("𝕂ᵘ * -TriC.ℳ(eout, e, TriC.Δ⃗(e, ein, u⃗))", 1) => "𝕂ᵘ * -evalat(eout, ein, Δu⃗)",
 		],
 	],
 	:HexC => [
@@ -401,10 +388,10 @@ bschemes = Dict(
 			("evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))", 0) => "evalat(cout, cin, w) * ∂₃(evalat(cout, cin, b))"
 		],
 		[
-			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * -TriC.Δ(cout, cin, b)",
-			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 1) => "𝕂ᵇ * -evalat(cout, cin, Δb)",
 			("𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 0) => "𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))",
 			("𝕂ᵇ * TriC.Δ(cout, c, TriC.Δ(c, cin, b))", 1) => "𝕂ᵇ * evalat(cout, cin, Δ²b)",
+			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 0) => "𝕂ᵇ * -TriC.Δ(cout, cin, b)",
+			("𝕂ᵇ * -TriC.Δ(cout, cin, b)", 1) => "𝕂ᵇ * -evalat(cout, cin, Δb)",
 		]
 	],
 	:HexC => [
@@ -660,12 +647,12 @@ df = let
 	les = [6.25e3, 12.5e3]
 	𝕍ᵘs = [0.0, 0.005]
 	𝕍ᵇs = [0.0, 0.005]
-	savepath = joinpath(@__DIR__, "..", "data", "newsims.csv")
+	savepath = joinpath(@__DIR__, "..", "data", "newsims2.csv")
 	if isfile(savepath)
 		df = CSV.read(savepath, DataFrame)
 		select(df, Not(:Ks, :iωs), :Ks => ByRow(x->eval(Meta.parse(x))) => :Ks, :iωs => ByRow(x-> eval(Meta.parse(x))) => :iωs)
 	else
-		df = testall(; nθUs, nβs, les, 𝕍ᵘs, 𝕍ᵇs)
+		df = testall(; nθUs, nβs, les, 𝕍ᵘs, 𝕍ᵇs, Nz=32)
 		CSV.write(savepath, df)
 		df
 	end
@@ -782,7 +769,7 @@ Flow shift (in -HM²/f₀): $(@bind sβ PlutoUI.Slider(-0.5:0.1:0.5; default=0.0
 
 le: $(@bind sle PlutoUI.Slider([1e-28, 1.575e3, 3.125e3, 6.25e3, 12.5e3, 25e3]; default=6.25e3, show_value=true))
 
-Ri: $(@bind sRi Select([100//1, 1//2]; default=100//1))
+Ri: $(@bind sRi Select([100.0, 0.5]; default=100//1))
 
 hst-scheme: $(@bind shst_scheme Select([:low => "low-order accurate", :high => "high-order accurate"]))
 
@@ -801,6 +788,7 @@ else
 end;
 
 # ╔═╡ 69f7116f-5062-43b3-a004-acd5de35ed1e
+#=╠═╡
 let
 	Ri     = 100
 	size   = Ri > 1 ? (1400, 500) : (1400, 500)
@@ -838,8 +826,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 953ca291-388d-4689-a891-fcdd62b659f7
+#=╠═╡
 let
 	Ri     = 100
 	size   = Ri > 1 ? (1400, 600) : (1400, 500)
@@ -876,8 +866,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 93f798b4-b999-48e2-9cc4-2371d238ee9d
+#=╠═╡
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
@@ -915,8 +907,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ c68fde99-fd3d-454e-b8d3-c510b35ac02b
+#=╠═╡
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 700) : (1400, 500)
@@ -954,8 +948,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 8d013161-0743-4907-b133-1f2bacbcc1d1
+#=╠═╡
 let
 	Ri = 100
 	size   = Ri > 1 ? (1400, 2*500) : (1400, 2*500)
@@ -997,8 +993,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 10f7c553-6875-4d22-be26-58947e8a381d
+#=╠═╡
 let
 	Ri = 1/2
 	size   = Ri > 1 ? (1400, 2*500) : (1400, 2*500)
@@ -1041,8 +1039,10 @@ let
 	colsize!(f.layout, 1, Aspect(1, aspect))
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 2cdf19d9-870e-495b-bba9-2c1e29f28ba6
+#=╠═╡
 let
 	size   = sRi > 1 ? (1400, 500) : (1400, 500)
 	fₛ     = min(1e-2, 2/√3*π/sle)
@@ -1074,16 +1074,17 @@ let
 		𝕂ᵘ = sVᵘ * sle
 		𝕂ᵇ = sVᵇ * sle
 	end
-	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈𝕂ᵘ, :𝕂ᵇ=>x->x.≈𝕂ᵇ, :Ri=>x->x.==sRi, :grid_t=>x->x.=="TriB")
+	subdf = subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈𝕂ᵘ, :𝕂ᵇ=>x->x.≈𝕂ᵇ, :Ri=>x->x.==sRi, :grid_t=>x->x.=="TriB", :hst_scheme=>x->Symbol.(x).==shst_scheme)
 	for row in eachrow(subdf)
 		(; Ks, iωs, grid_t, hmt_scheme) = row
 		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(grid_t)):$(String(hmt_scheme))", linewidth=3)
 	end
 	(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :le=>x->x.≈0, :Ri=>x->x.≈sRi))
 	lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="ideal", linewidth=4, linestyle=:dot, color=:black)
-	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=30)
+	axislegend(ax; merge=true, valign=:top, orientation=:horizontal, labelsize=36)
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 3588e3e2-193d-4c1c-9dbf-c046803cface
 rtrig = let
@@ -1223,7 +1224,6 @@ function lowestorder(expr)
 end
 
 # ╔═╡ 3ff311ec-aaaf-42f1-b11a-25be4632192c
-#=╠═╡
 function exactop(iH, cp_t_out, expr)
 	expr = substitute(expr, Dict(GridOperatorAnalysis.sqrt3^2=>3//1, GridOperatorAnalysis.le=>_le))
 	expr = Symbolics.expand(taylor_coeff(Symbolics.expand(expr), ϵ, 1))
@@ -1232,7 +1232,6 @@ function exactop(iH, cp_t_out, expr)
 	fexpr = substitute(fexpr, Dict(_le => 1e-20, GridOperatorAnalysis.sqrt3 => √3))
 	Symbolics.simplify(fexpr; expand=true)
 end
-  ╠═╡ =#
 
 # ╔═╡ 4efa8fb3-a6a9-4e73-8d61-8c7c45f0d35f
 function exactop(fexpr)
@@ -1310,7 +1309,7 @@ begin
 end;
 
 # ╔═╡ a2687cd8-4e59-414a-8560-e8293935e6b0
-jac = lowering_sys(grid_t, fsys, fflow; Nz=16);
+jac = lowering_sys(grid_t, fsys, fflow; Nz=32);
 
 # ╔═╡ c6332760-298c-42f0-ba13-0936cab3fdcd
 fun = let
@@ -1325,11 +1324,12 @@ fun = let
 	end
 	r = Symbolics.@rule ~a => f(~a)
 	rewriter = SymbolicUtils.Postwalk(SymbolicUtils.PassThrough(f))
-	@showtime jac .= Symbolics.simplify.(jac; rewriter)
-	Symbolics.build_function.(substitute.(jac, Ref(Dict(GridOperatorAnalysis.sqrt3=>√3))), k, l, Ri, le, _f₀, _g, _N², 𝕂ᵘ, 𝕂ᵇ, θU, β; expression=Val{false})
+	#@showtime jac .= Symbolics.simplify.(jac; rewriter)
+	Symbolics.build_function.(jac, k, l, Ri, le, _f₀, _g, _N², 𝕂ᵘ, 𝕂ᵇ, θU, β, GridOperatorAnalysis.sqrt3; expression=Val{false})
 end;
 
 # ╔═╡ ab60e360-e826-496d-b382-e868f640d85c
+#=╠═╡
 Ks, iωs = let
 	θ = (sRi > 1 ? 0 : π/2) + sθU
     Kmax = min(1e-2, 2/√3*π/sle)
@@ -1341,13 +1341,15 @@ Ks, iωs = let
 		l = K * sin(θ)
 
 		for i=1:size(fun, 1), j=1:size(fun,2)
-			njac[i,j] = -fun[i,j](k,l, sRi, sle, f₀, g, N², s𝕂ᵘ, s𝕂ᵇ, sθU, sβ)
+			njac[i,j] = -fun[i,j](k,l, sRi, sle, f₀, g, N², 4*s𝕂ᵘ, 4*s𝕂ᵇ, sθU, sβ, √3)
 		end
+		#njac .= fun(k,l, sRi, sle, f₀, g, N², s𝕂ᵘ, s𝕂ᵇ, sθU, sβ, √3)
         vals, vecs = eigen(njac)
         push!(iωs, vals[end])
     end
 	(Ks, iωs)
 end
+  ╠═╡ =#
 
 # ╔═╡ a34aca42-98e0-429c-aba6-a2893e5ad983
 # ╠═╡ disabled = true
@@ -1373,6 +1375,7 @@ end
   ╠═╡ =#
 
 # ╔═╡ b15d7752-cf88-4e49-95c2-69935c08f448
+#=╠═╡
 let
 	size   = sRi > 1 ? (1500, 550) : (1400, 500)
 	θ      = (sRi > 1 ? 0 : π/2) + sθU
@@ -1401,12 +1404,13 @@ let
 			 )
 	lines!(ax, Ks./ fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t))", linewidth=3)
 	let
-		(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈s𝕂ᵘ, :𝕂ᵇ=>x->x.≈s𝕂ᵇ, :Ri=>x->x.==sRi, :grid_t=>x->Symbol.(x).==_grid_t, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic))
-		lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t)): fully discr.", linewidth=4, linestyle=:dot, color=:black)
+		#(; Ks, iωs, grid_t, hmt_scheme) = first(subset(df, :β=>x->x.==sβ, :θU=>x->x.==sθU, :le=>x->x.==sle, :𝕂ᵘ=>x->x.≈s𝕂ᵘ, :𝕂ᵇ=>x->x.≈s𝕂ᵇ, :Ri=>x->x.≈sRi, :grid_t=>x->Symbol.(x).==_grid_t, :hmt_scheme=>x->Symbol.(x).==hmt_scheme, :hst_scheme=>x->Symbol.(x).==shst_scheme, :dissip_scheme=>x->Symbol.(x).==:biharmonic))
+		#lines!(ax, Ks./fₛ, real.(iωs) .* (sqrt(N²) / abs(M²)), label="$(String(_grid_t)): fully discr.", linewidth=4, linestyle=:dot, color=:black)
 	end
 	axislegend()
 	f
 end
+  ╠═╡ =#
 
 # ╔═╡ 2ced61a3-8306-423f-b0f7-71ab9906186a
 #=╠═╡
@@ -1542,6 +1546,31 @@ function exactops(grid_t)
 end
   ╠═╡ =#
 
+# ╔═╡ ee93d7e8-14a0-4021-8f3d-ddf14a79d608
+# ╠═╡ disabled = true
+#=╠═╡
+(; ∇ᵀu⃗, Δu⃗, Δ²u⃗, Δb, Δ²b, ∇p, ∇η, u⃗ᵀ∇u⃗, u⃗ᵀ∇b) = exactops(grid_t)
+  ╠═╡ =#
+
+# ╔═╡ b02f29a5-7f20-49dd-aa0a-9b30d8b4a1ed
+# ╠═╡ disabled = true
+# ╠═╡ skip_as_script = true
+#=╠═╡
+begin
+	const f₀ = -1e-4
+	const g  = 1e9
+	const N² = 1e-6
+	const U  = 1.0
+	const H  = 4000
+	const Nz = 4
+end;
+  ╠═╡ =#
+
+# ╔═╡ 99dab097-3490-46cb-bf26-62b60b51d3c2
+#=╠═╡
+const Nz = 16
+  ╠═╡ =#
+
 # ╔═╡ Cell order:
 # ╠═500f352c-6e16-11f0-215d-4f5a3075cb33
 # ╟─534dfd2f-f7e5-4253-83dc-0be9e94cba01
@@ -1592,7 +1621,7 @@ end
 # ╠═a34aca42-98e0-429c-aba6-a2893e5ad983
 # ╟─e3bc1fcc-fb96-404f-8204-675174b3afe1
 # ╠═b15d7752-cf88-4e49-95c2-69935c08f448
-# ╟─be945a73-9afb-4b9a-ac78-4514fbb0e33e
+# ╠═be945a73-9afb-4b9a-ac78-4514fbb0e33e
 # ╠═70f46342-4b5c-45ce-9bf9-13a44fd780fc
 # ╟─3adadede-5704-441f-9756-08f0f820c723
 # ╟─2bfe2cd8-cf70-4efa-a0d2-5a3fe447e9e8
