@@ -1,6 +1,7 @@
 using Base.Threads
 using DataFrames
 import DrWatson: produce_or_load, @unpack, @dict, @strdict
+using Revise
 import GridOperatorAnalysis: eady_background_flow, bb, e, c, v, nS, dims, t, z, sqrt3
 import GridOperatorAnalysis: TriAFlow, TriAFlowFT, TriBFlow, TriBFlowFT, TriCFlow, TriCFlowFT, HexCFlow, HexCFlowFT
 import GridOperatorAnalysis: colpt_type, colptidx, compute_phases, sqrt3_subs
@@ -296,7 +297,7 @@ function createbuffer(::Val{grid_t}) where {grid_t}
 end
 
 ## methods for assembling
-function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme)
+function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
     Δz  = H / Nz
     h   = a * √3/2
 
@@ -311,7 +312,8 @@ function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f�
 
     # compute fourier symbols
     for (name, fsym) in pairs(fsyms)
-	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, a, h)
+        useideal = get(useidealized, name, false)
+	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
     end
 
     # vertical operators
@@ -383,7 +385,7 @@ function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f�
     S̲
 end
 
-function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme)
+function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
     Δz  = H / Nz
     h   = a * √3/2
 
@@ -398,7 +400,8 @@ function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f�
 
     # compute fourier symbols
     for (name, fsym) in pairs(fsyms)
-	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, a, h)
+        useideal = get(useidealized, name, false)
+	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
     end
 
     # vertical operators
@@ -467,10 +470,10 @@ function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f�
 end
 
 
-function analyzeinstability(config, fsyms)
+function analyzeinstability(config, fsyms; kwargs...)
     @unpack grid_t, hmt_scheme, hst_scheme, dissip_scheme, g, f₀, N², Ri, θU, β, Vᵘ, Vᵇ, a, H, Nz = config
     θ = (Ri > 1 ? 0 : π/2) + θU
-    Kmax = min(1e-2, 2/√3*π/a)
+    Kmax = min(2/√3*π/6.25e3, 2/√3*π/a)
 
     nK = 500
     Ks  = range(1e-10, Kmax*1.1, nK)
@@ -480,7 +483,7 @@ function analyzeinstability(config, fsyms)
         k = K * cos(θ)
 	l = K * sin(θ)
 
-        S̲ = systemmat(Val(grid_t), fsyms, bfsyms, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme)
+        S̲ = systemmat(Val(grid_t), fsyms, bfsyms, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, kwargs...)
 
         F = eigen(-S̲)
         iωs[iK] = F.values[end]
@@ -497,7 +500,7 @@ function eadyexperiments(; nθUs, nβs, Vᵘs, Vᵇs, as, Nz=16, H=4000.0, f₀=
     nt = Threads.nthreads()
     dfs = [initialdf() for i in 1:nt]
     #df = initialdf()
-    Threads.@threads for grid_t in [:TriB]
+    Threads.@threads for grid_t in [:TriA, :TriB, :TriC, :HexC]
         Threads.@threads for hmt_scheme in first.(hmt_schemes[grid_t])
             Threads.@threads for hst_scheme in first.(hst_schemes[grid_t])
                 Threads.@threads for dissip_scheme in [:biharmonic]
@@ -540,7 +543,7 @@ function symbolicsymbols(grid_t, hmt_scheme, hst_scheme, dissip_scheme, doapprox
 
     @variables f₀ g N² Ri M² β θU 𝕂ᵘ 𝕂ᵇ H Nz
     symbolicsyms = Dict([
-        name => fsym[1](z, f₀, N², Ri, θU, β, k, l, a, h) for (name, fsym) in pairs(fsyms_generated)
+        name => fsym[1](z, f₀, N², Ri, θU, β, k, l, a, h) for (name, fsym) in pairs(fsyms_generated) if name ≠ :Γy
     ])
     symbolicsyms
 end
