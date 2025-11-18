@@ -543,7 +543,7 @@ function symbolicsymbols(grid_t, hmt_scheme, hst_scheme, dissip_scheme, doapprox
 
     @variables f₀ g N² Ri M² β θU 𝕂ᵘ 𝕂ᵇ H Nz
     symbolicsyms = Dict([
-        name => fsym[1](z, f₀, N², Ri, θU, β, k, l, a, h) for (name, fsym) in pairs(fsyms_generated) if name ≠ :Γy
+        name => fsym[1](z, f₀, N², Ri, θU, β, k, l, a, h) for (name, fsym) in pairs(fsyms_generated)# if name ≠ :Γy
     ])
     symbolicsyms
 end
