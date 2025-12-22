@@ -20,34 +20,15 @@ import Symbolics
 import SymbolicUtils: Postwalk, PassThrough
 
 
-# Parameters of the experiment
-# @variables f₀ g N² Ri M² β θU 𝕂ᵘ 𝕂ᵇ h a H Nz
+# const a  = only(@variables(a))
+# const h  = only(@variables(h))
 
-# const f₀ = only(@variables(f₀))
-# const g  = only(@variables(g))
-# const N² = only(@variables(N²))
-# const Ri = only(@variables(Ri))
-# const M² = only(@variables(M²))
-# const β  = only(@variables(β))
-# const θU = only(@variables(θU))
-# const 𝕂ᵘ = only(@variables(𝕂ᵘ))
-# const 𝕂ᵇ = only(@variables(𝕂ᵇ))
+# # Wavenumbers
+# #@variables k l
+# const k = only(@variables(k))
+# const l = only(@variables(l))
 
-const a  = only(@variables(a))
-const h  = only(@variables(h))
-
-# Wavenumbers
-#@variables k l
-const k = only(@variables(k))
-const l = only(@variables(l))
-
-const ϕ = compute_phases(k, l, a)
-
-# vertical variable
-# const z = only(@variables(z))
-
-# Pertubation parameter
-#const ϵ = only(@variables(ϵ))
+# const ϕ = compute_phases(k, l, a)
 
 
 function computesymbols(config)
@@ -108,12 +89,36 @@ end
 
 
 # compute vertical multiplication operators
-const vfops = let
+# const vfops = let
+#     @variables f₀ N² M² Ri θU β H
+#     Ū  = (z + H * (1//2 + β)) * -M²/f₀
+#     Ūz = expand_derivatives(Differential(z)(Ū))
+
+#     vops = Dict(
+#         :Ū  => Ū, 
+#         :U  => Ū * cos(θU),
+#         :V  => Ū * sin(θU),
+#         :Uz => Ūz * cos(θU),
+#         :Vz => Ūz * sin(θU),
+#         :Bx => M² * -sin(θU),
+#         :By => M² * cos(θU),
+#     )
+
+#     @assert isequal(vops[:Bx], f₀ * vops[:Vz])
+#     @assert isequal(vops[:By], -f₀ * vops[:Uz])
+
+#     (;
+#         [Symbol("$(name)f") => build_function(substitute(vop, Dict(M² => √(f₀^2 * N²/ Ri))), z, f₀, N², Ri, θU, β, H; expression=Val{false}) for (name, vop) in pairs(vops)]...
+#     )    
+# end
+
+function vertical_ops()
     @variables f₀ N² M² Ri θU β H
     Ū  = (z + H * (1//2 + β)) * -M²/f₀
     Ūz = expand_derivatives(Differential(z)(Ū))
 
     vops = Dict(
+        :Ū  => Ū, 
         :U  => Ū * cos(θU),
         :V  => Ū * sin(θU),
         :Uz => Ūz * cos(θU),
@@ -126,8 +131,8 @@ const vfops = let
     @assert isequal(vops[:By], -f₀ * vops[:Uz])
 
     (;
-        [Symbol("$(name)f") => build_function(substitute(vop, Dict(M² => √(f₀^2 * N²/ Ri))), z, f₀, N², Ri, θU, β, H; expression=Val{false}) for (name, vop) in pairs(vops)]...
-    )    
+     [Symbol("$(name)f") => build_function(substitute(vop, Dict(M² => √(f₀^2 * N²/ Ri))), z, f₀, N², Ri, θU, β, H; expression=Val{false}) for (name, vop) in pairs(vops)]...
+         )    
 end
 
 
@@ -297,7 +302,7 @@ function createbuffer(::Val{grid_t}) where {grid_t}
 end
 
 ## methods for assembling
-function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
+function systemmatalt(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
     Δz  = H / Nz
     h   = a * √3/2
 
@@ -313,11 +318,12 @@ function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f�
     # compute fourier symbols
     for (name, fsym) in pairs(fsyms)
         useideal = get(useidealized, name, false)
-	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
+	fsym[2](b[name], 0.0, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
     end
 
     # vertical operators
-    @unpack Uf, Vf, Uzf, Vzf, Bxf, Byf = vfops
+    @unpack Ūf, Uf, Vf, Uzf, Vzf, Bxf, Byf = vfops
+    Ū̲ = Diagonal([Ūf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
     U̲ = Diagonal([Uf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
     V̲ = Diagonal([Vf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
     U̲⃗ = (U̲, V̲)
@@ -351,8 +357,9 @@ function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f�
     # U⃗
     @views for iTH = 1:2
 	for jTH = 1:2
-	    kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][iTH,:,jTH,:], U̲)
-	    S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:Gy][iTH,:,jTH,:], V̲)
+	    #kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][iTH,:,jTH,:], U̲)
+            kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][iTH,:,jTH,:], Ū̲)
+	    #S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:Gy][iTH,:,jTH,:], V̲)
 	    S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ˣ⁾][iTH,:,:], U̲z) * W̲[jTH]
 	    S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ʸ⁾][iTH,:,:], V̲z) * W̲[jTH]
 	    S̲[ru⃗[iTH], ru⃗[jTH]] += f₀ * kron(b[:M][iTH,:,jTH,:], I(Nz))
@@ -385,6 +392,113 @@ function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f�
     S̲
 end
 
+function systemmat(grid_t::Union{Val{:TriA}, Val{:TriB}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
+    Δz  = H / Nz
+    h   = a * √3/2
+
+    function diagmzadd!(C, iTH, jTH, A, B; useideal=false)
+        # @assert size(C, 1) % Nz == 0 && size(C, 2) % Nz == 0
+        # da1 = size(C, 1) ÷ Nz
+        # da2 = size(C, 2) ÷ Nz
+        for iV in 1:Nz
+            zi = ((iV-1/2)-Nz) * Δz
+            C[iV:Nz:end, iV:Nz:end] .+= A(zi, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)[iTH, :, jTH, :] * B(zi, f₀, N², Ri, θU, β, H)
+        end
+    end
+    
+    # conversion to dissipation parameters
+    if dissip_scheme == :biharmonic
+	𝕂ᵘ = Vᵘ * a^3
+	𝕂ᵇ = Vᵇ * a^3
+    else
+	𝕂ᵘ = Vᵘ * a
+	𝕂ᵇ = Vᵇ * a
+    end
+
+    # compute fourier symbols
+    for (name, fsym) in pairs(fsyms)
+        useideal = get(useidealized, name, false)
+	fsym[2](b[name], 0.0, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
+    end
+    
+    # vertical operators
+    @unpack Ūf, Uf, Vf, Uzf, Vzf, Bxf, Byf = vfops
+    Ū̲ = Diagonal([Ūf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    U̲ = Diagonal([Uf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    V̲ = Diagonal([Vf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    U̲⃗ = (U̲, V̲)
+    U̲z = Diagonal([Uzf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    V̲z = Diagonal([Vzf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    U̲⃗z = (U̲z, V̲z)
+    B̲x = Diagonal([Bxf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    B̲y = Diagonal([Byf(((iV-1/2)-Nz) * Δz, f₀, N², Ri, θU, β, H) for iV=1:Nz])
+    B̲⃗ = (B̲x, B̲y)
+    
+    flow_t = getflow(grid_t)
+    du = dims(colpt_type(flow_t, :u⃗))
+    ds = dims(colpt_type(flow_t, :b))
+    W̲ = let
+	M = Δz * 1/2 * [iV ≤ iVi ≤ iV+1 for iV=1:Nz, iVi=1:Nz+1] * [iV < iVi ? 1 : 0 for iVi=1:Nz+1, iV=1:Nz]
+	[kron(-b[:D][:,jTH,:], M) for jTH=1:2]
+    end
+    
+    P̲ = let
+	M = Δz * 1/2 * [iV ≤ iVi ? 1 : 0 for iV=1:Nz, iVi=1:Nz-1] * [iVi ≤ iV ≤ iVi+1 for iVi=1:Nz-1, iV=1:Nz]
+	kron(I(ds), -M)
+    end
+
+    # assembling	
+    S̲ = zeros(ComplexF64, (2*du+ds)*Nz+ds, (2*du+ds)*Nz+ds)
+
+    ru⃗ = [(iTH-1)*du*Nz+1:iTH*du*Nz for iTH=1:2]
+    rb = 2*du*Nz+1:(2*du+ds)*Nz
+    rη = (2*du+ds)*Nz+1:(2*du+ds)*Nz+ds
+    
+    # U⃗
+    @views for iTH = 1:2
+	for jTH = 1:2
+	    #kron!(S̲[ru⃗[iTH], ru⃗[jTH]], b[:Gx][iTH,:,jTH,:], U̲)
+            C = S̲[ru⃗[iTH], ru⃗[jTH]]
+            useideal = get(useidealized, :Gx, false)
+            for iV in 1:Nz
+                zi = ((iV-1/2)-Nz) * Δz
+                C[iV:Nz:end, iV:Nz:end] .+= fsyms[:Gx][1](zi, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)[iTH, :, jTH, :] * Ūf(zi, f₀, N², Ri, θU, β, H)
+            end
+            #diagmzadd!(S̲[ru⃗[iTH], ru⃗[jTH]], iTH, jTH, fsyms[:Gx][1], Ūf; useideal=get(useidealized, :Gx, false))
+	    #S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:Gy][iTH,:,jTH,:], V̲)
+	    S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ˣ⁾][iTH,:,:], U̲z) * W̲[jTH]
+	    S̲[ru⃗[iTH], ru⃗[jTH]] += kron(b[:A⁽ʸ⁾][iTH,:,:], V̲z) * W̲[jTH]
+	    S̲[ru⃗[iTH], ru⃗[jTH]] += f₀ * kron(b[:M][iTH,:,jTH,:], I(Nz))
+	    S̲[ru⃗[iTH], ru⃗[jTH]] += 𝕂ᵘ * kron(b[:Dᵘ][iTH,:,jTH,:], I(Nz))
+	end
+
+	kron!(S̲[ru⃗[iTH], rb], b[:G][iTH,:,:], I(Nz))
+	S̲[ru⃗[iTH], rb] *= P̲
+
+	kron!(S̲[ru⃗[iTH], rη], b[:G][iTH,:,:], g*ones(Nz,1))
+    end
+
+    # b
+    @views for jTH = 1:2
+	S̲[rb, ru⃗[jTH]] += N² * kron(b[:I], I(Nz)) * W̲[jTH]
+	S̲[rb, ru⃗[jTH]] += kron(b[:Av⁽ˣ⁾][:,jTH,:], B̲x)
+	S̲[rb, ru⃗[jTH]] += kron(b[:Av⁽ʸ⁾][:,jTH,:], B̲y)
+    end
+    @views kron!(S̲[rb, rb], b[:Γx], U̲)
+    @views S̲[rb, rb] += kron(b[:Γy], V̲)
+    @views S̲[rb, rb] += 𝕂ᵇ * kron(b[:Dᵇ], I(Nz))
+
+    # η
+    @views for jTH = 1:2
+	kron!(S̲[rη, ru⃗[jTH]], b[:D][:,jTH,:], Δz*ones(1,Nz))
+    end
+
+    S̲[rη, rη] .= U̲[end] * b[:Γx] + V̲[end] * b[:Γy]
+    
+    S̲
+end
+
+
 function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f₀, N², H, Nz, Ri, θU, β, a, Vᵘ, Vᵇ, dissip_scheme, useidealized=Dict())
     Δz  = H / Nz
     h   = a * √3/2
@@ -401,7 +515,7 @@ function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f�
     # compute fourier symbols
     for (name, fsym) in pairs(fsyms)
         useideal = get(useidealized, name, false)
-	fsym[2](b[name], z, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
+	fsym[2](b[name], 0.0, f₀, N², Ri, θU, β, k, l, useideal ? 1e-20 : a, useideal ? √3/2*1e-20 : h)
     end
 
     # vertical operators
@@ -470,7 +584,7 @@ function systemmat(grid_t::Union{Val{:TriC}, Val{:HexC}}, fsyms, b, k, l; g, f�
 end
 
 
-function analyzeinstability(config, fsyms; kwargs...)
+function analyzeinstability(config, fsyms; usevecs=false, kwargs...)
     @unpack grid_t, hmt_scheme, hst_scheme, dissip_scheme, g, f₀, N², Ri, θU, β, Vᵘ, Vᵇ, a, H, Nz = config
     θ = (Ri > 1 ? 0 : π/2) + θU
     Kmax = min(2/√3*π/6.25e3, 2/√3*π/a)
@@ -478,6 +592,12 @@ function analyzeinstability(config, fsyms; kwargs...)
     nK = 500
     Ks  = range(1e-10, Kmax*1.1, nK)
     iωs = zeros(ComplexF64, nK)
+    statesize = let
+        du = dims(colpt_type(Val(grid_t), :u⃗))
+        ds = dims(colpt_type(Val(grid_t), :b))
+        colpt_type(Val(grid_t), :u⃗) ≠ :edge ? (2*du+ds)*Nz+ds : (du+ds)*Nz+ds
+    end
+    vs = zeros(ComplexF64, statesize, nK)
     bfsyms = createbuffer(Val(grid_t))
     @progress for (iK, K) in enumerate(Ks)
         k = K * cos(θ)
@@ -487,12 +607,16 @@ function analyzeinstability(config, fsyms; kwargs...)
 
         F = eigen(-S̲)
         iωs[iK] = F.values[end]
+        vs[:,iK] .= F.vectors[:,end]
     end
 
     instance = copy(config)
     
     instance[:Ks]  = Ks
     instance[:iωs] = iωs
+    if usevecs
+        instance[:vs] = vs
+    end
     instance
 end
 
@@ -500,7 +624,7 @@ function eadyexperiments(; nθUs, nβs, Vᵘs, Vᵇs, as, Nz=16, H=4000.0, f₀=
     nt = Threads.nthreads()
     dfs = [initialdf() for i in 1:nt]
     #df = initialdf()
-    Threads.@threads for grid_t in [:TriA, :TriB, :TriC, :HexC]
+    Threads.@threads for grid_t in [:TriB]#[:TriA, :TriB, :TriC, :HexC]
         Threads.@threads for hmt_scheme in first.(hmt_schemes[grid_t])
             Threads.@threads for hst_scheme in first.(hst_schemes[grid_t])
                 Threads.@threads for dissip_scheme in [:biharmonic]
@@ -608,41 +732,83 @@ function getflowft(grid_t)
     end
 end
 
-const hmt_schemes = Dict(
-    :TriA => [
-	:standard => "Standard",
-    ],
-    :TriB => [
-	:asc => "advective form, streamline derivative on cells",
-	:avi => "advective form, vector-invariant", 
-	:fdv => "flux form, divergence on vertices", 
-	#:fdcre => "flux form, diverence on cells with reconstruction on edges"
-    ],
-    :TriC => [
-	:ICON => "ICON"
-    ],
-    :HexC => [
-	:MPAS => "MPAS"
-    ]
-)
+function getschemes_hmt()
+    Dict(
+        :TriA => [
+	    :standard => "Standard",
+        ],
+        :TriB => [
+	    :asc => "advective form, streamline derivative on cells",
+	    :avi => "advective form, vector-invariant", 
+	    :fdv => "flux form, divergence on vertices", 
+	    :fdcre => "flux form, diverence on cells with reconstruction on edges"
+        ],
+        :TriC => [
+	    :ICON => "ICON",
+	    :MICON => "MICON"
+        ],
+        :HexC => [
+	    :MPAS => "MPAS"
+        ]
+    )
+end
 
-const hst_schemes = Dict(
-    :TriA => [
-        :low => "low",
-        :high => "high",
-    ],
-    :TriB => [
-        :low => "low",
-        :high => "high",
-    ],
-    :TriC => [
-        :low => "low",
-    ],
-    :HexC => [
-        :low => "low",
-        :high => "high",
-    ],
-)
+# const hmt_schemes = Dict(
+#     :TriA => [
+# 	:standard => "Standard",
+#     ],
+#     :TriB => [
+# 	:asc => "advective form, streamline derivative on cells",
+# 	:avi => "advective form, vector-invariant", 
+# 	:fdv => "flux form, divergence on vertices", 
+# 	:fdcre => "flux form, diverence on cells with reconstruction on edges"
+#     ],
+#     :TriC => [
+# 	:ICON => "ICON",
+# 	:MICON => "MICON"
+#     ],
+#     :HexC => [
+# 	:MPAS => "MPAS"
+#     ]
+# )
+
+function getschemes_hst()
+    Dict(
+        :TriA => [
+            :low => "low",
+            :high => "high",
+        ],
+        :TriB => [
+            :low => "low",
+            :high => "high",
+        ],
+        :TriC => [
+            :low => "low",
+        ],
+        :HexC => [
+            :low => "low",
+            :high => "high",
+        ],
+    )
+end
+
+# const hst_schemes = Dict(
+#     :TriA => [
+#         :low => "low",
+#         :high => "high",
+#     ],
+#     :TriB => [
+#         :low => "low",
+#         :high => "high",
+#     ],
+#     :TriC => [
+#         :low => "low",
+#     ],
+#     :HexC => [
+#         :low => "low",
+#         :high => "high",
+#     ],
+# )
 
 # function analyzeinstability(; eady_jac, Ri, θU, β, 𝕂ᵘ, 𝕂ᵇ, grid_t, hmt_scheme, hst_scheme, dissip_scheme, le, Nz)
 #     θ = (Ri > 1 ? 0 : π/2) + θU
